@@ -11,11 +11,25 @@ def qt_img_to_rgb_cv_img(qt_img, img_path=None):
     """
     Convert 8bit/16bit RGB image or 8bit/16bit Gray image to 8bit RGB image
     """
+    cv_image = None
     if img_path is not None and os.path.exists(img_path):
-        # Load Image From Path Directly
-        cv_image = cv2.imdecode(np.fromfile(img_path, dtype=np.uint8), -1)
-        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-    else:
+        # Load image from path directly when possible.
+        # Some files may fail to decode (unsupported/corrupt/empty); fallback below.
+        raw = np.fromfile(img_path, dtype=np.uint8)
+        if raw.size > 0:
+            cv_image = cv2.imdecode(raw, -1)
+
+        if cv_image is not None and cv_image.size > 0:
+            if len(cv_image.shape) == 2:
+                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_GRAY2RGB)
+            elif cv_image.shape[2] == 4:
+                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGRA2RGB)
+            else:
+                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+
+    if cv_image is None:
+        if qt_img is None or qt_img.isNull():
+            raise ValueError(f"Could not decode image from path: {img_path}")
         if (
             qt_img.format() == QImage.Format.Format_RGB32
             or qt_img.format() == QImage.Format.Format_ARGB32

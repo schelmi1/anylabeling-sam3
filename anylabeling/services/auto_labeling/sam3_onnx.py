@@ -1,8 +1,10 @@
+import os
 from typing import Any
 
 import cv2
 import numpy as np
-import onnxruntime
+
+from .ort_session import create_onnx_session
 
 
 class SegmentAnything3ONNX:
@@ -81,7 +83,18 @@ class SegmentAnything3ONNX:
         #            False → a real box is provided
         box_masks = [True]
 
-        for mark in prompt:
+        # SAM3 decoder currently consumes a single box prompt. Use the latest
+        # user mark so each new click/drag affects the next inference.
+        point_box_size = 0.03
+        env_point_box_size = os.getenv("ANYLABELING_SAM3_POINT_BOX_SIZE", "").strip()
+        if env_point_box_size:
+            try:
+                point_box_size = max(0.001, min(0.5, float(env_point_box_size)))
+            except ValueError:
+                pass
+
+        for mark in reversed(prompt):
+            mark_label = int(mark.get("label", 1))
             if mark["type"] == "rectangle":
                 x1, y1, x2, y2 = mark["data"]
                 cx = (x1 + x2) / 2.0 / original_size[1]
@@ -89,14 +102,16 @@ class SegmentAnything3ONNX:
                 w = (x2 - x1) / original_size[1]
                 h = (y2 - y1) / original_size[0]
                 box_coords = [cx, cy, w, h]
+                box_labels = [mark_label]
                 box_masks = [False]
                 break
             elif mark["type"] == "point":
                 x, y = mark["data"]
                 cx = x / original_size[1]
                 cy = y / original_size[0]
-                # Point is represented as a very small box (1 % of image).
-                box_coords = [cx, cy, 0.01, 0.01]
+                # Represent point prompt as a small box around the click.
+                box_coords = [cx, cy, point_box_size, point_box_size]
+                box_labels = [mark_label]
                 box_masks = [False]
                 break
 
@@ -168,9 +183,7 @@ class SAM3ImageEncoder:
     """
 
     def __init__(self, path: str) -> None:
-        self.session = onnxruntime.InferenceSession(
-            path, providers=onnxruntime.get_available_providers()
-        )
+        self.session = create_onnx_session(path)
         encoder_input = self.session.get_inputs()[0]
         self.input_name: str = encoder_input.name
         self.input_shape = encoder_input.shape
@@ -233,9 +246,7 @@ class SAM3LanguageEncoder:
     """
 
     def __init__(self, path: str) -> None:
-        self.session = onnxruntime.InferenceSession(
-            path, providers=onnxruntime.get_available_providers()
-        )
+        self.session = create_onnx_session(path)
         try:
             from osam._models.yoloworld.clip import tokenize
 
@@ -270,9 +281,7 @@ class SAM3ImageDecoder:
     """
 
     def __init__(self, path: str) -> None:
-        self.session = onnxruntime.InferenceSession(
-            path, providers=onnxruntime.get_available_providers()
-        )
+        self.session = create_onnx_session(path)
         self.input_names: list[str] = [i.name for i in self.session.get_inputs()]
 
     def __call__(

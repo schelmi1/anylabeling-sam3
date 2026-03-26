@@ -123,15 +123,27 @@ class SegmentAnything(Model):
         # points, rectangles
         self.marks = []
 
-        # Cache for image embedding
-        self.cache_size = 10
-        self.preloaded_size = self.cache_size - 3
+        # Cache for image embedding (tunable via environment variables).
+        self.cache_size = self._env_int("ANYLABELING_EMBED_CACHE_SIZE", 10, minimum=1)
+        self.preloaded_size = self._env_int(
+            "ANYLABELING_PRELOAD_SIZE", self.cache_size - 3, minimum=0
+        )
         self.image_embedding_cache = LRUCache(self.cache_size)
 
         # Pre-inference worker
         self.pre_inference_thread = None
         self.pre_inference_worker = None
         self.stop_inference = False
+
+    @staticmethod
+    def _env_int(name: str, default: int, minimum: int = 0) -> int:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return max(default, minimum)
+        try:
+            return max(int(raw), minimum)
+        except ValueError:
+            return max(default, minimum)
 
     def detect_model_variant(self, decoder_model_abs_path: str) -> str:
         """Detect SAM model variant from the decoder ONNX graph.
@@ -392,6 +404,8 @@ class SegmentAnything(Model):
         """
         files = files[: self.preloaded_size]
         for filename in files:
+            if hasattr(cv2, "haveImageReader") and not cv2.haveImageReader(filename):
+                continue
             if self.image_embedding_cache.find(filename):
                 continue
             image = self.load_image_from_filename(filename)
@@ -399,7 +413,13 @@ class SegmentAnything(Model):
                 continue
             if self.stop_inference:
                 return
-            cv_image = qt_img_to_rgb_cv_img(image)
+            # In preload worker threads, converting QImage buffers can be unstable.
+            # Decode from file path directly to avoid invalid-QImage crashes.
+            try:
+                cv_image = qt_img_to_rgb_cv_img(image, filename)
+            except Exception:  # noqa: BLE001
+                logging.warning("Failed to convert preload image: %s", filename)
+                continue
             image_embedding = self.model.encode(cv_image)
             self.image_embedding_cache.put(
                 filename,

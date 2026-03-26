@@ -1,0 +1,1927 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AnyLabeling Browser (SAM2/SAM3)</title>
+  <style>
+    :root {
+      --bg: #f4f7f9;
+      --surface: #ffffff;
+      --line: #d8e2e8;
+      --ink: #1f2a37;
+      --muted: #607080;
+      --accent: #0f766e;
+      --accent-soft: #e6fffb;
+      --shadow: 0 10px 35px rgba(11, 42, 57, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 500px at 0% -10%, #d7f3ff, transparent),
+        radial-gradient(800px 400px at 100% 0%, #dbf7ef, transparent),
+        var(--bg);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 18px;
+      min-height: 100vh;
+      padding: 18px;
+    }
+    .sidebar {
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 10px;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 2px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0.1px;
+    }
+    .brand span {
+      font-size: 11px;
+      color: var(--muted);
+      background: #f4f8fb;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+    .card {
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      color: #334e68;
+      text-transform: uppercase;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 9px 0 5px;
+    }
+    select,
+    input,
+    button {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      font-size: 13px;
+      background: #fff;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button {
+      cursor: pointer;
+      background: #f5f9fb;
+      color: #334e68;
+      font-weight: 600;
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    button.ghost {
+      background: #fff;
+    }
+    button.tool-active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
+    }
+    .tool-hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    details.card > summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334e68;
+      padding: 0;
+      margin: 0 0 8px;
+    }
+    details.card > summary::-webkit-details-marker { display: none; }
+    .checkgrid {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .checkgrid label {
+      margin: 0;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+      color: #334e68;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .checkgrid input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+    .status {
+      border: 1px solid #bee3f8;
+      background: var(--accent-soft);
+      color: #0b4f4a;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      min-height: 34px;
+    }
+    .wheel-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      pointer-events: none;
+    }
+    .wheel-overlay.open { display: block; }
+    .action-wheel {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .wheel-center {
+      position: absolute;
+      inset: 58px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 4px;
+      align-content: center;
+      padding: 12px 14px;
+      cursor: move;
+      z-index: 1;
+    }
+    .wheel-center label {
+      margin: 0;
+      font-size: 10px;
+    }
+    .wheel-center input,
+    .wheel-center select {
+      width: 100%;
+      font-size: 12px;
+      padding: 5px 7px;
+      border-radius: 8px;
+    }
+    .wheel-btn {
+      position: absolute;
+      width: 100px;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: #334e68;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(10, 30, 50, 0.12);
+      cursor: pointer;
+      z-index: 2;
+    }
+    .wheel-btn.top { top: -26px; left: 90px; }
+    .wheel-btn.right { right: -26px; top: 120px; }
+    .wheel-btn.bottom { bottom: -26px; left: 90px; }
+    .wheel-btn.left { left: -26px; top: 120px; }
+    .wheel-btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .stage {
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      min-height: 0;
+    }
+    .stage-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #486581;
+      font-size: 12px;
+      padding: 2px 4px;
+    }
+    .hover-pill {
+      background: #eef7ff;
+      border: 1px solid #cfe3f6;
+      color: #334e68;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      max-width: 360px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .canvas-shell {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 10px;
+      overflow: auto;
+      min-height: 0;
+      position: relative;
+      width: max-content;
+      max-width: calc(100vw - 760px);
+      flex: 0 0 auto;
+    }
+    canvas {
+      border: 1px solid var(--line);
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    .anno-list {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      max-height: 220px;
+      overflow: auto;
+      background: #fbfdff;
+    }
+    .anno-item {
+      padding: 8px;
+      border-bottom: 1px solid #e8eef2;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      cursor: pointer;
+    }
+    .anno-item:last-child { border-bottom: none; }
+    .anno-item.active {
+      background: #dff1ff;
+      box-shadow: inset 3px 0 0 #0b7285;
+    }
+    .anno-item.hovered {
+      background: #e9fce9;
+      box-shadow: inset 3px 0 0 #16a34a;
+    }
+    .anno-item:hover { background: #f2f9ff; }
+    .anno-item input {
+      width: 100%;
+      border: 1px solid #d0dce4;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 13px;
+    }
+    .cursor-label {
+      position: absolute;
+      display: none;
+      pointer-events: none;
+      z-index: 20;
+      transform: translate(12px, 10px);
+      background: rgba(23, 42, 58, 0.92);
+      color: #fff;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .workspace {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-height: 0;
+      overflow: auto;
+    }
+    .panel-box {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+      width: 320px;
+      flex: 0 0 320px;
+    }
+    .panel-box h3 {
+      margin: 0;
+      font-size: 13px;
+      color: #334e68;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .crop-controls {
+      display: grid;
+      gap: 6px;
+    }
+    .crop-controls .row3 {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    #cropCanvas {
+      width: 100%;
+      max-width: 100%;
+      min-height: 120px;
+      background: #f8fbfd;
+      border: 1px dashed #c8d7e2;
+    }
+    .crop-empty {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { max-height: none; }
+      .workspace { display: grid; grid-template-columns: 1fr; }
+      .canvas-shell { width: auto; max-width: 100%; }
+      .panel-box { width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>AnyLabeling Browser</h1>
+        <span>SAM2 / SAM3</span>
+      </div>
+
+      <section class="card">
+        <h2>Session</h2>
+        <label for="imageInput">Image</label>
+        <input id="imageInput" type="file" accept="image/*" />
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect"></select>
+        <label for="textPrompt">SAM3 Text Prompt</label>
+        <input id="textPrompt" type="text" value="visual" />
+        <label for="promptModeSelect">SAM3 Prompt Mode</label>
+        <select id="promptModeSelect">
+          <option value="both">Both (Text + Visual)</option>
+          <option value="text">Text Only</option>
+          <option value="visual">Visual Only</option>
+        </select>
+        <label for="confidence">Confidence (SAM3)</label>
+        <input id="confidence" type="number" min="0" max="1" step="0.05" value="0.5" />
+        <div class="row">
+          <button class="ghost" id="loadModelBtn">Load Model</button>
+          <span></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Prompt Tools</h2>
+        <div class="row">
+          <button id="modeAdd">Point +</button>
+          <button id="modeRemove">Point -</button>
+        </div>
+        <div class="row">
+          <button id="modeRect">Rectangle</button>
+          <button id="modeCrop">Crop Tool</button>
+        </div>
+        <div class="row">
+          <button id="inferTextBtn">Infer Text</button>
+          <span></span>
+        </div>
+        <div class="tool-hint">Shift+click adds a negative point.</div>
+      </section>
+
+      <details class="card" open>
+        <summary>Controls</summary>
+        <div class="checkgrid">
+          <label><input type="checkbox" id="optLowMem" checked /> CUDA low-memory mode</label>
+          <label><input type="checkbox" id="optNoTrt" checked /> Disable TensorRT</label>
+          <label><input type="checkbox" id="optCapMem" checked /> Cap CUDA memory (9GB)</label>
+          <label><input type="checkbox" id="optTinyCache" checked /> Tiny embedding cache</label>
+          <label><input type="checkbox" id="optNoPreload" checked /> Disable preload</label>
+          <label><input type="checkbox" id="autoSaveJson" checked /> Autosave JSON</label>
+        </div>
+        <label for="workdirInput">Working Directory</label>
+        <input id="workdirInput" type="text" placeholder="/path/to/workdir" />
+        <div class="row">
+          <button id="setWorkdirBtn">Set Workdir</button>
+          <button id="applyVramBtn">Apply</button>
+        </div>
+        <div class="row">
+          <button id="resetBtn">Clear GPU / Unload</button>
+          <button id="clearPromptsBtn">Clear Prompts</button>
+        </div>
+        <div class="row">
+          <button id="clearMasksBtn">Clear Masks</button>
+          <span></span>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary>Annotations</summary>
+        <div id="annoList" class="anno-list"></div>
+        <div class="row">
+          <button id="downloadAnnBtn">Download JSON</button>
+          <button id="clearAnnBtn">Clear List</button>
+        </div>
+      </details>
+
+      <div class="status" id="status">Ready</div>
+    </aside>
+
+    <main class="stage">
+      <div class="stage-head">
+        <div>Click points or drag a box, then run inference.</div>
+        <div id="hoverInfo" class="hover-pill">Hover an annotation to preview label</div>
+      </div>
+      <div class="workspace">
+        <div class="canvas-shell">
+          <canvas id="canvas"></canvas>
+          <div id="cursorLabel" class="cursor-label"></div>
+        </div>
+        <div class="panel-box">
+          <h3>Crop Preview</h3>
+          <div class="crop-controls">
+            <div class="row3">
+              <span>Upscale</span>
+              <span id="cropScaleValue">2.0x</span>
+            </div>
+            <div id="cropResInfo" class="row3"><span>Effective resolution</span><span>—</span></div>
+            <input id="cropScale" type="range" min="1" max="6" step="0.5" value="2" />
+            <div class="row">
+              <button id="clearCropBtn">Clear Crop</button>
+              <button id="clearCropMarksBtn">Clear Crop Marks</button>
+            </div>
+          </div>
+          <canvas id="cropCanvas"></canvas>
+          <div id="cropEmpty" class="crop-empty">Use Crop Tool and drag on image to create crop.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="actionWheelOverlay" class="wheel-overlay">
+    <div id="actionWheel" class="action-wheel">
+      <button id="wheelSaveNew" class="wheel-btn top primary">Save New</button>
+      <button id="wheelSaveExisting" class="wheel-btn right">Save Existing</button>
+      <button id="wheelCancel" class="wheel-btn bottom">Cancel</button>
+      <button id="wheelDiscard" class="wheel-btn left">Discard</button>
+      <div class="wheel-center">
+        <label for="wheelLabelInput">Label Name</label>
+        <input id="wheelLabelInput" type="text" value="AUTOLABEL_OBJECT" />
+        <label for="wheelLabelSelect">Existing Labels</label>
+        <select id="wheelLabelSelect"></select>
+        <label style="text-transform:none; font-size:12px; margin-top:2px;">
+          <input id="wheelSameLabel" type="checkbox" checked style="width:auto; margin-right:6px;" />
+          Same label
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const modelSelect = document.getElementById('modelSelect');
+    const imageInput = document.getElementById('imageInput');
+    const textPrompt = document.getElementById('textPrompt');
+    const promptModeSelect = document.getElementById('promptModeSelect');
+    const confidence = document.getElementById('confidence');
+    const statusEl = document.getElementById('status');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const cropCanvas = document.getElementById('cropCanvas');
+    const cropCtx = cropCanvas.getContext('2d');
+    const cropScaleInput = document.getElementById('cropScale');
+    const cropScaleValue = document.getElementById('cropScaleValue');
+    const cropResInfo = document.getElementById('cropResInfo');
+    const cropEmpty = document.getElementById('cropEmpty');
+    const optLowMem = document.getElementById('optLowMem');
+    const optNoTrt = document.getElementById('optNoTrt');
+    const optCapMem = document.getElementById('optCapMem');
+    const optTinyCache = document.getElementById('optTinyCache');
+    const optNoPreload = document.getElementById('optNoPreload');
+    const autoSaveJson = document.getElementById('autoSaveJson');
+    const workdirInput = document.getElementById('workdirInput');
+    const annoList = document.getElementById('annoList');
+    const cursorLabel = document.getElementById('cursorLabel');
+    const hoverInfo = document.getElementById('hoverInfo');
+    const actionWheelOverlay = document.getElementById('actionWheelOverlay');
+    const actionWheel = document.getElementById('actionWheel');
+    const wheelLabelInput = document.getElementById('wheelLabelInput');
+    const wheelLabelSelect = document.getElementById('wheelLabelSelect');
+    const wheelSameLabel = document.getElementById('wheelSameLabel');
+    const modeAddBtn = document.getElementById('modeAdd');
+    const modeRemoveBtn = document.getElementById('modeRemove');
+    const modeRectBtn = document.getElementById('modeRect');
+    const modeCropBtn = document.getElementById('modeCrop');
+
+    let currentImage = null;
+    let currentImageId = null;
+    let marks = [];
+    let annotations = [];
+    let selectedAnnotationId = null;
+    let hoveredAnnotationId = null;
+    let mode = 'point-add';
+    let rectStart = null;
+    let rectPreview = null;
+    let cropRect = null; // [x1,y1,x2,y2] in full-image coords
+    let cropScale = Number(cropScaleInput.value);
+    let cropMarks = []; // marks in crop-local source coords
+    let cropSourceCanvas = null; // unscaled crop pixels
+    let cropPendingPolygons = []; // proposal polys in crop-local coords
+    let nextAnnotationId = 1;
+    let pendingPolygons = [];
+    let pendingSource = 'full'; // 'full' | 'crop'
+    let pendingCropRect = null;
+    let lastMouseClientX = null;
+    let lastMouseClientY = null;
+    let wheelDragging = false;
+    let wheelDragOffsetX = 0;
+    let wheelDragOffsetY = 0;
+    let lastSelectedExistingLabel = '';
+    const labelColorPalette = [
+      '#e31a1c', '#1f78b4', '#33a02c', '#ff7f00', '#6a3d9a',
+      '#b15928', '#17becf', '#d62728', '#2ca02c', '#9467bd',
+      '#8c564b', '#bcbd22', '#e7298a', '#66a61e', '#1b9e77',
+      '#7570b3', '#e6ab02', '#a6761d', '#666666', '#00bcd4',
+    ];
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function syncModeButtons() {
+      modeAddBtn.classList.toggle('tool-active', mode === 'point-add');
+      modeRemoveBtn.classList.toggle('tool-active', mode === 'point-remove');
+      modeRectBtn.classList.toggle('tool-active', mode === 'rect');
+      modeCropBtn.classList.toggle('tool-active', mode === 'crop-select');
+    }
+
+    function setHoverInfo(text) {
+      hoverInfo.textContent = text || 'Hover an annotation to preview label';
+    }
+
+    function showCursorLabel(text, x, y) {
+      if (!text) {
+        cursorLabel.style.display = 'none';
+        return;
+      }
+      cursorLabel.textContent = text;
+      cursorLabel.style.left = `${x}px`;
+      cursorLabel.style.top = `${y}px`;
+      cursorLabel.style.display = 'block';
+    }
+
+    function updatePointerFromEvent(e) {
+      lastMouseClientX = e.clientX;
+      lastMouseClientY = e.clientY;
+    }
+
+    function setHoveredAnnotation(id) {
+      hoveredAnnotationId = id;
+      const ann = annotations.find((a) => a.id === id);
+      setHoverInfo(ann ? `Label: ${ann.name}` : '');
+      syncAnnoListHoverState();
+      redraw();
+      renderCropPreview();
+    }
+
+    function colorFromLabel(label) {
+      const key = (label || '').trim().toLowerCase() || 'default';
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+      }
+      return labelColorPalette[Math.abs(hash) % labelColorPalette.length];
+    }
+
+    function hexToRgb(hex) {
+      const raw = (hex || '#000000').replace('#', '');
+      const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+      const num = Number.parseInt(full, 16);
+      return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255,
+      };
+    }
+
+    function rgbaFromHex(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function syncAnnoListHoverState() {
+      const rows = annoList.querySelectorAll('.anno-item[data-ann-id]');
+      for (const row of rows) {
+        const id = Number(row.dataset.annId);
+        row.classList.toggle('hovered', Number.isFinite(id) && id === hoveredAnnotationId);
+      }
+    }
+
+    function pointInPolygon(x, y, poly) {
+      // Ray casting algorithm.
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1];
+        const xj = poly[j][0], yj = poly[j][1];
+        const intersect = ((yi > y) !== (yj > y))
+          && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function findAnnotationAt(x, y) {
+      for (let i = annotations.length - 1; i >= 0; i--) {
+        const ann = annotations[i];
+        if (ann.points && ann.points.length >= 3 && pointInPolygon(x, y, ann.points)) {
+          return ann.id;
+        }
+      }
+      return null;
+    }
+
+    function selectAnnotation(id) {
+      if (!Number.isFinite(id)) return;
+      selectedAnnotationId = id;
+      renderAnnotations();
+      redraw();
+      renderCropPreview();
+    }
+
+    function polygonBounds(polygons) {
+      if (!polygons || !polygons.length) return null;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const poly of polygons) {
+        if (!poly || !poly.length) continue;
+        for (const pt of poly) {
+          if (!pt || pt.length < 2) continue;
+          const x = Number(pt[0]);
+          const y = Number(pt[1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+      if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+        return null;
+      }
+      return { minX, minY, maxX, maxY };
+    }
+
+    function openActionWheel(defaultLabel, polygons, source = 'full') {
+      pendingPolygons = polygons || [];
+      pendingSource = source;
+      pendingCropRect = source === 'crop' && cropRect ? normalizeRect(cropRect) : null;
+      wheelLabelInput.value = defaultLabel || 'AUTOLABEL_OBJECT';
+
+      const labelNames = [...new Set(annotations.map((a) => (a.name || '').trim()).filter(Boolean))];
+      wheelLabelSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = labelNames.length ? 'Select existing label' : 'No existing labels';
+      wheelLabelSelect.appendChild(placeholder);
+      for (const name of labelNames) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        wheelLabelSelect.appendChild(opt);
+      }
+      if (lastSelectedExistingLabel && labelNames.includes(lastSelectedExistingLabel)) {
+        wheelLabelSelect.value = lastSelectedExistingLabel;
+      } else {
+        wheelLabelSelect.value = '';
+      }
+
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const x = lastMouseClientX ?? Math.round(vw / 2);
+      const y = lastMouseClientY ?? Math.round(vh / 2);
+      const wheelRadius = 150;
+      const gap = 22;
+      const pad = wheelRadius;
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+      let cx = clamp(x + 180, pad, vw - pad);
+      let cy = clamp(y, pad, vh - pad);
+
+      const bounds = polygonBounds(pendingPolygons);
+      const canvasRect = canvas.getBoundingClientRect();
+      if (
+        bounds &&
+        canvasRect.width > 0 &&
+        canvasRect.height > 0 &&
+        canvas.width > 0 &&
+        canvas.height > 0
+      ) {
+        const sx = canvasRect.width / canvas.width;
+        const sy = canvasRect.height / canvas.height;
+        const boxLeft = canvasRect.left + bounds.minX * sx;
+        const boxRight = canvasRect.left + bounds.maxX * sx;
+        const boxTop = canvasRect.top + bounds.minY * sy;
+        const boxBottom = canvasRect.top + bounds.maxY * sy;
+
+        const candidates = [
+          { cx: boxRight + gap + wheelRadius, cy: clamp(y, boxTop, boxBottom) },
+          { cx: boxLeft - gap - wheelRadius, cy: clamp(y, boxTop, boxBottom) },
+          { cx: clamp(x, boxLeft, boxRight), cy: boxTop - gap - wheelRadius },
+          { cx: clamp(x, boxLeft, boxRight), cy: boxBottom + gap + wheelRadius },
+        ].map((p) => ({
+          cx: clamp(p.cx, pad, vw - pad),
+          cy: clamp(p.cy, pad, vh - pad),
+        }));
+
+        let best = candidates[0];
+        let bestDist = Infinity;
+        for (const c of candidates) {
+          const dx = c.cx - x;
+          const dy = c.cy - y;
+          const dist = dx * dx + dy * dy;
+          if (dist < bestDist) {
+            best = c;
+            bestDist = dist;
+          }
+        }
+        cx = best.cx;
+        cy = best.cy;
+      }
+
+      actionWheel.style.left = `${cx}px`;
+      actionWheel.style.top = `${cy}px`;
+
+      actionWheelOverlay.classList.add('open');
+      wheelLabelInput.focus();
+      wheelLabelInput.select();
+    }
+
+    function closeActionWheel(clearPending = true) {
+      actionWheelOverlay.classList.remove('open');
+      if (clearPending) {
+        pendingPolygons = [];
+        pendingSource = 'full';
+        pendingCropRect = null;
+      }
+    }
+
+    function discardPendingProposal() {
+      pendingPolygons = [];
+      pendingSource = 'full';
+      pendingCropRect = null;
+      marks = [];
+      cropMarks = [];
+      rectStart = null;
+      rectPreview = null;
+      cropPendingPolygons = [];
+      mode = 'point-add';
+      syncModeButtons();
+      showCursorLabel('', 0, 0);
+      renderCropPreview();
+      closeActionWheel(false);
+      redraw();
+    }
+
+    function savePendingAnnotations(baseNameRaw) {
+      const baseName = (baseNameRaw || '').trim() || 'AUTOLABEL_OBJECT';
+      const sameLabel = !!wheelSameLabel.checked;
+      let polygonsToSave = pendingPolygons;
+
+      // Safety: when proposals come from crop inference, never save polygons
+      // outside the selected crop bounds.
+      if (pendingSource === 'crop' && pendingCropRect) {
+        const [x1, y1, x2, y2] = pendingCropRect;
+        polygonsToSave = pendingPolygons
+          .map((poly) =>
+            poly.map((pt) => [
+              Math.max(x1, Math.min(x2, pt[0])),
+              Math.max(y1, Math.min(y2, pt[1])),
+            ])
+          )
+          .filter((poly) => {
+            if (!poly || poly.length < 3) return false;
+            // Keep only polygons that intersect crop area meaningfully.
+            return poly.some((pt) => pt[0] > x1 && pt[0] < x2 && pt[1] > y1 && pt[1] < y2);
+          });
+      }
+
+      for (let i = 0; i < polygonsToSave.length; i++) {
+        annotations.push({
+          id: nextAnnotationId++,
+          name: (!sameLabel && polygonsToSave.length > 1) ? `${baseName}_${i + 1}` : baseName,
+          points: polygonsToSave[i],
+        });
+      }
+      marks = [];
+      rectStart = null;
+      rectPreview = null;
+      cropMarks = [];
+      cropPendingPolygons = [];
+      closeActionWheel();
+      showCursorLabel('', 0, 0);
+      renderCropPreview();
+      selectedAnnotationId = annotations.length ? annotations[annotations.length - 1].id : null;
+      renderAnnotations();
+      redraw();
+      setStatus(`Saved ${polygonsToSave.length} annotation(s) as "${baseName}". Ready for prompts.`);
+      triggerAutosave('save_annotations');
+    }
+
+    async function fetchModels() {
+      const res = await fetch('/api/models');
+      const data = await res.json();
+      modelSelect.innerHTML = '';
+      for (const m of data.models) {
+        const opt = document.createElement('option');
+        opt.value = m.name;
+        opt.textContent = `${m.display_name} (${m.has_downloaded ? 'local' : 'download'})`;
+        modelSelect.appendChild(opt);
+      }
+      syncPromptModeAvailability();
+    }
+
+    function isSam3Selected() {
+      return (modelSelect.value || '').toLowerCase().includes('sam3');
+    }
+
+    function syncPromptModeAvailability() {
+      const sam3 = isSam3Selected();
+      promptModeSelect.disabled = !sam3;
+      if (!sam3) {
+        promptModeSelect.value = 'visual';
+      }
+    }
+
+    function buildInferencePayload(imageId, inputMarks) {
+      const mode = promptModeSelect.value;
+      const sam3 = isSam3Selected();
+      let marks = inputMarks || [];
+      let text = textPrompt.value;
+
+      if (sam3) {
+        if (mode === 'text') {
+          marks = [];
+        } else if (mode === 'visual') {
+          text = 'visual';
+        }
+      }
+
+      return {
+        model_name: modelSelect.value,
+        image_id: imageId,
+        marks,
+        text_prompt: text,
+        confidence_threshold: Number(confidence.value),
+      };
+    }
+
+    async function syncRuntimeOptions() {
+      const res = await fetch('/api/runtime');
+      const data = await res.json();
+      const o = data.runtime_options || {};
+      optLowMem.checked = !!o.cuda_low_mem;
+      optNoTrt.checked = !!o.disable_tensorrt;
+      optCapMem.checked = !!o.cap_cuda_mem;
+      optTinyCache.checked = !!o.tiny_embed_cache;
+      optNoPreload.checked = !!o.disable_preload;
+    }
+
+    async function syncWorkdir() {
+      const res = await fetch('/api/workdir');
+      if (!res.ok) return;
+      const data = await res.json();
+      workdirInput.value = data.workdir || '';
+    }
+
+    async function applyWorkdir() {
+      const workdir = (workdirInput.value || '').trim();
+      if (!workdir) {
+        setStatus('Enter a working directory path first');
+        return;
+      }
+      const res = await fetch('/api/workdir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workdir }),
+      });
+      if (!res.ok) {
+        setStatus(`Set workdir failed: ${await res.text()}`);
+        return;
+      }
+      const data = await res.json();
+      workdirInput.value = data.workdir || workdir;
+      setStatus(`Working directory set: ${data.workdir}`);
+    }
+
+    function buildAnnotationExportPayload(reason = null) {
+      return {
+        image_id: currentImageId,
+        model: modelSelect.value,
+        reason,
+        annotations: annotations.map((a) => ({ name: a.name, points: a.points })),
+      };
+    }
+
+    let autosaveInFlight = false;
+    let autosaveQueuedReason = null;
+    let autosaveDebounceTimer = null;
+    async function triggerAutosave(reason) {
+      if (!autoSaveJson.checked) return;
+      autosaveQueuedReason = reason || 'update';
+      if (autosaveInFlight) return;
+      autosaveInFlight = true;
+      try {
+        while (autosaveQueuedReason) {
+          const reasonToSend = autosaveQueuedReason;
+          autosaveQueuedReason = null;
+          const res = await fetch('/api/annotations/autosave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildAnnotationExportPayload(reasonToSend)),
+          });
+          if (!res.ok) {
+            setStatus(`Autosave failed: ${await res.text()}`);
+            break;
+          }
+        }
+      } finally {
+        autosaveInFlight = false;
+      }
+    }
+
+    function scheduleAutosave(reason) {
+      if (!autoSaveJson.checked) return;
+      clearTimeout(autosaveDebounceTimer);
+      autosaveDebounceTimer = setTimeout(() => {
+        triggerAutosave(reason);
+      }, 250);
+    }
+
+    function applyAnnotationRowColor(row, input, labelName) {
+      const baseColor = colorFromLabel(labelName);
+      row.style.boxShadow = `inset 3px 0 0 ${baseColor}`;
+      input.style.borderColor = rgbaFromHex(baseColor, 0.55);
+      input.style.background = rgbaFromHex(baseColor, 0.08);
+    }
+
+    async function loadModel() {
+      const model_name = modelSelect.value;
+      setStatus(`Loading model ${model_name}...`);
+      const res = await fetch('/api/model/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_name }),
+      });
+      if (!res.ok) {
+        setStatus(`Model load failed: ${await res.text()}`);
+        return;
+      }
+      setStatus(`Model loaded: ${model_name}`);
+    }
+
+    function renderAnnotations() {
+      annoList.innerHTML = '';
+      if (!annotations.length) {
+        const empty = document.createElement('div');
+        empty.className = 'anno-item';
+        empty.style.color = '#829ab1';
+        empty.textContent = 'No annotations yet';
+        annoList.appendChild(empty);
+        return;
+      }
+      for (const ann of annotations) {
+        const row = document.createElement('div');
+        row.dataset.annId = String(ann.id);
+        row.className = 'anno-item'
+          + (ann.id === selectedAnnotationId ? ' active' : '')
+          + (ann.id === hoveredAnnotationId ? ' hovered' : '');
+
+        const input = document.createElement('input');
+        input.value = ann.name;
+        applyAnnotationRowColor(row, input, ann.name);
+        input.oninput = (e) => {
+          ann.name = e.target.value;
+          applyAnnotationRowColor(row, input, ann.name);
+          if (ann.id === hoveredAnnotationId) {
+            setHoverInfo(`Label: ${ann.name}`);
+          }
+          scheduleAutosave('rename_annotation');
+        };
+        input.onclick = (e) => e.stopPropagation();
+        input.onfocus = () => selectAnnotation(ann.id);
+
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.onclick = (e) => {
+          e.stopPropagation();
+          annotations = annotations.filter((a) => a.id !== ann.id);
+          if (selectedAnnotationId === ann.id) selectedAnnotationId = null;
+          renderAnnotations();
+          redraw();
+          renderCropPreview();
+          triggerAutosave('delete_annotation');
+        };
+
+        row.appendChild(input);
+        row.appendChild(del);
+        annoList.appendChild(row);
+      }
+    }
+
+    annoList.addEventListener('mouseover', (e) => {
+      const row = e.target.closest('.anno-item[data-ann-id]');
+      if (!row) return;
+      const id = Number(row.dataset.annId);
+      if (!Number.isFinite(id)) return;
+      if (hoveredAnnotationId !== id) setHoveredAnnotation(id);
+    });
+
+    annoList.addEventListener('click', (e) => {
+      const row = e.target.closest('.anno-item[data-ann-id]');
+      if (!row) return;
+      const id = Number(row.dataset.annId);
+      if (!Number.isFinite(id)) return;
+      selectAnnotation(id);
+    });
+
+    annoList.addEventListener('mouseleave', () => {
+      if (hoveredAnnotationId !== null) {
+        hoveredAnnotationId = null;
+        setHoverInfo('');
+        syncAnnoListHoverState();
+        redraw();
+        renderCropPreview();
+      }
+    });
+
+    function redraw() {
+      if (!currentImage) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+      ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+
+      ctx.lineWidth = 2;
+      for (const mark of marks) {
+        if (mark.type === 'point') {
+          const [x, y] = mark.data;
+          ctx.fillStyle = mark.label === 1 ? '#2f9e44' : '#c92a2a';
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const [x1, y1, x2, y2] = mark.data;
+          ctx.strokeStyle = mark.label === 1 ? '#2f9e44' : '#c92a2a';
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        }
+      }
+
+      const drawAnnotation = (ann) => {
+        const poly = ann.points;
+        if (!poly.length) return;
+        const isHovered = ann.id === hoveredAnnotationId;
+        const isSelected = ann.id === selectedAnnotationId;
+        const baseColor = colorFromLabel(ann.name);
+        if (isHovered) {
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = 4;
+          ctx.fillStyle = rgbaFromHex(baseColor, 0.16);
+          ctx.shadowColor = rgbaFromHex(baseColor, 0.65);
+          ctx.shadowBlur = 12;
+        } else if (isSelected) {
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = 4;
+          ctx.fillStyle = rgbaFromHex(baseColor, 0.14);
+          ctx.shadowColor = rgbaFromHex(baseColor, 0.55);
+          ctx.shadowBlur = 10;
+        } else {
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = 'transparent';
+          ctx.shadowBlur = 0;
+        }
+        ctx.beginPath();
+        ctx.moveTo(poly[0][0], poly[0][1]);
+        for (let i = 1; i < poly.length; i++) {
+          ctx.lineTo(poly[i][0], poly[i][1]);
+        }
+        ctx.closePath();
+        if (isSelected || isHovered) {
+          ctx.fill();
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      };
+
+      // Draw non-hovered/non-selected first.
+      for (const ann of annotations) {
+        if (ann.id === selectedAnnotationId || ann.id === hoveredAnnotationId) continue;
+        drawAnnotation(ann);
+      }
+      // Draw hovered next so it's clearly visible.
+      if (hoveredAnnotationId !== null) {
+        const hovered = annotations.find((a) => a.id === hoveredAnnotationId);
+        if (hovered) drawAnnotation(hovered);
+      }
+      // Draw selected last for strongest emphasis.
+      if (selectedAnnotationId !== null) {
+        const selected = annotations.find((a) => a.id === selectedAnnotationId);
+        if (selected) drawAnnotation(selected);
+      }
+
+      if (pendingPolygons.length) {
+        // Dim the non-proposal region so proposed masks pop.
+        ctx.fillStyle = 'rgba(244, 248, 252, 0.62)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      for (const poly of pendingPolygons) {
+        if (!poly.length) continue;
+        // Vibrant proposal styling: bright fill + glow + dashed outline.
+        ctx.beginPath();
+        ctx.moveTo(poly[0][0], poly[0][1]);
+        for (let i = 1; i < poly.length; i++) {
+          ctx.lineTo(poly[i][0], poly[i][1]);
+        }
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(124, 58, 237, 0.30)';
+        ctx.fill();
+        ctx.shadowColor = 'rgba(168, 85, 247, 0.8)';
+        ctx.shadowBlur = 12;
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 6]);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.setLineDash([]);
+      }
+
+      if ((mode === 'rect' || mode === 'crop-select') && rectPreview) {
+        const [x1, y1, x2, y2] = rectPreview;
+        ctx.strokeStyle = mode === 'crop-select' ? '#7c3aed' : '#0f766e';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        ctx.setLineDash([]);
+      }
+
+      if (cropRect) {
+        const [x1, y1, x2, y2] = cropRect;
+        ctx.strokeStyle = 'rgba(124, 58, 237, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 5]);
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        ctx.setLineDash([]);
+      }
+    }
+
+    function normalizeRect(rect) {
+      const [x1, y1, x2, y2] = rect;
+      const left = Math.min(x1, x2);
+      const top = Math.min(y1, y2);
+      const right = Math.max(x1, x2);
+      const bottom = Math.max(y1, y2);
+      return [left, top, right, bottom];
+    }
+
+    function buildCropSource() {
+      if (!currentImage || !cropRect) {
+        cropSourceCanvas = null;
+        return;
+      }
+      const [x1, y1, x2, y2] = normalizeRect(cropRect);
+      const w = Math.max(1, Math.round(x2 - x1));
+      const h = Math.max(1, Math.round(y2 - y1));
+      if (w < 2 || h < 2) {
+        cropSourceCanvas = null;
+        return;
+      }
+      const tmp = document.createElement('canvas');
+      tmp.width = w;
+      tmp.height = h;
+      const tctx = tmp.getContext('2d');
+      tctx.drawImage(currentImage, x1, y1, w, h, 0, 0, w, h);
+      cropSourceCanvas = tmp;
+    }
+
+    function renderCropPreview() {
+      if (!cropSourceCanvas) {
+        cropCanvas.width = 300;
+        cropCanvas.height = 140;
+        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+        cropEmpty.style.display = 'block';
+        cropResInfo.innerHTML = '<span>Effective resolution</span><span>—</span>';
+        return;
+      }
+      cropEmpty.style.display = 'none';
+      const w = Math.max(1, Math.round(cropSourceCanvas.width * cropScale));
+      const h = Math.max(1, Math.round(cropSourceCanvas.height * cropScale));
+      cropResInfo.innerHTML = `<span>Effective resolution</span><span>${cropSourceCanvas.width}x${cropSourceCanvas.height} → ${w}x${h}</span>`;
+      cropCanvas.width = w;
+      cropCanvas.height = h;
+      cropCtx.clearRect(0, 0, w, h);
+      cropCtx.drawImage(cropSourceCanvas, 0, 0, w, h);
+
+      // Draw crop marks
+      cropCtx.lineWidth = 2;
+      for (const mark of cropMarks) {
+        if (mark.type === 'point') {
+          const [x, y] = mark.data;
+          cropCtx.fillStyle = mark.label === 1 ? '#2f9e44' : '#c92a2a';
+          cropCtx.beginPath();
+          cropCtx.arc(x * cropScale, y * cropScale, 4, 0, Math.PI * 2);
+          cropCtx.fill();
+        } else {
+          const [x1, y1, x2, y2] = mark.data;
+          cropCtx.strokeStyle = mark.label === 1 ? '#2f9e44' : '#c92a2a';
+          cropCtx.strokeRect(x1 * cropScale, y1 * cropScale, (x2 - x1) * cropScale, (y2 - y1) * cropScale);
+        }
+      }
+
+      // Draw saved annotations projected into crop-local coordinates.
+      if (cropRect && annotations.length) {
+        const [cx1, cy1, cx2, cy2] = normalizeRect(cropRect);
+        for (const ann of annotations) {
+          const poly = ann.points || [];
+          if (poly.length < 3) continue;
+
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const [px, py] of poly) {
+            if (px < minX) minX = px;
+            if (py < minY) minY = py;
+            if (px > maxX) maxX = px;
+            if (py > maxY) maxY = py;
+          }
+          const intersects = !(maxX < cx1 || minX > cx2 || maxY < cy1 || minY > cy2);
+          if (!intersects) continue;
+
+          const isHovered = ann.id === hoveredAnnotationId;
+          const isSelected = ann.id === selectedAnnotationId;
+          const baseColor = colorFromLabel(ann.name);
+          if (isHovered) {
+            cropCtx.strokeStyle = baseColor;
+            cropCtx.lineWidth = 3.5;
+            cropCtx.fillStyle = rgbaFromHex(baseColor, 0.14);
+          } else if (isSelected) {
+            cropCtx.strokeStyle = baseColor;
+            cropCtx.lineWidth = 3.5;
+            cropCtx.fillStyle = rgbaFromHex(baseColor, 0.12);
+          } else {
+            cropCtx.strokeStyle = baseColor;
+            cropCtx.lineWidth = 2;
+            cropCtx.fillStyle = 'transparent';
+          }
+
+          cropCtx.beginPath();
+          cropCtx.moveTo((poly[0][0] - cx1) * cropScale, (poly[0][1] - cy1) * cropScale);
+          for (let i = 1; i < poly.length; i++) {
+            cropCtx.lineTo((poly[i][0] - cx1) * cropScale, (poly[i][1] - cy1) * cropScale);
+          }
+          cropCtx.closePath();
+          if (isHovered || isSelected) {
+            cropCtx.fill();
+          }
+          cropCtx.setLineDash([]);
+          cropCtx.stroke();
+        }
+      }
+
+      // Draw crop proposals
+      if (cropPendingPolygons.length) {
+        cropCtx.fillStyle = 'rgba(244, 248, 252, 0.62)';
+        cropCtx.fillRect(0, 0, w, h);
+      }
+      for (const poly of cropPendingPolygons) {
+        if (!poly.length) continue;
+        // High-contrast dashed highlight: white halo + vivid dashed stroke.
+        cropCtx.beginPath();
+        cropCtx.moveTo(poly[0][0] * cropScale, poly[0][1] * cropScale);
+        for (let i = 1; i < poly.length; i++) {
+          cropCtx.lineTo(poly[i][0] * cropScale, poly[i][1] * cropScale);
+        }
+        cropCtx.closePath();
+        cropCtx.strokeStyle = 'rgba(255,255,255,0.95)';
+        cropCtx.lineWidth = 5;
+        cropCtx.setLineDash([]);
+        cropCtx.stroke();
+
+        cropCtx.beginPath();
+        cropCtx.moveTo(poly[0][0] * cropScale, poly[0][1] * cropScale);
+        for (let i = 1; i < poly.length; i++) {
+          cropCtx.lineTo(poly[i][0] * cropScale, poly[i][1] * cropScale);
+        }
+        cropCtx.closePath();
+        cropCtx.fillStyle = 'rgba(124, 58, 237, 0.30)';
+        cropCtx.fill();
+        cropCtx.shadowColor = 'rgba(168, 85, 247, 0.8)';
+        cropCtx.shadowBlur = 10;
+        cropCtx.strokeStyle = '#7c3aed';
+        cropCtx.lineWidth = 2.5;
+        cropCtx.setLineDash([10, 6]);
+        cropCtx.lineDashOffset = 0;
+        cropCtx.stroke();
+        cropCtx.shadowBlur = 0;
+        cropCtx.setLineDash([]);
+      }
+    }
+
+    imageInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const form = new FormData();
+      form.append('file', file, file.name);
+      const uploadRes = await fetch('/api/image/upload', { method: 'POST', body: form });
+      if (!uploadRes.ok) {
+        setStatus(`Upload failed: ${await uploadRes.text()}`);
+        return;
+      }
+      const info = await uploadRes.json();
+      currentImageId = info.image_id;
+
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        currentImage = img;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        marks = [];
+        cropMarks = [];
+        nextAnnotationId = 1;
+        const loadedAnn = Array.isArray(info.annotations) ? info.annotations : [];
+        annotations = loadedAnn.map((ann) => ({
+          id: nextAnnotationId++,
+          name: (ann?.name || 'AUTOLABEL_OBJECT'),
+          points: Array.isArray(ann?.points) ? ann.points : [],
+        }));
+        pendingPolygons = [];
+        cropPendingPolygons = [];
+        cropRect = null;
+        cropSourceCanvas = null;
+        selectedAnnotationId = annotations.length ? annotations[annotations.length - 1].id : null;
+        hoveredAnnotationId = null;
+        setHoverInfo('');
+        showCursorLabel('', 0, 0);
+        renderCropPreview();
+        renderAnnotations();
+        syncAnnoListHoverState();
+        redraw();
+        const loadedCount = Number(info.loaded_annotation_count || 0);
+        if (loadedCount > 0) {
+          setStatus(`Image uploaded (${img.width}x${img.height}). Loaded ${loadedCount} annotation(s) from sidecar JSON.`);
+        } else {
+          setStatus(`Image uploaded (${img.width}x${img.height})`);
+        }
+        triggerAutosave('image_uploaded');
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+
+    canvas.addEventListener('click', (e) => {
+      updatePointerFromEvent(e);
+      if (!currentImage || mode === 'rect') return;
+      if (mode === 'crop-select') return;
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+      const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+      const label = e.shiftKey || mode === 'point-remove' ? 0 : 1;
+      marks.push({ type: 'point', data: [x, y], label });
+      redraw();
+      runFullInference();
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      updatePointerFromEvent(e);
+      if (!currentImage || (mode !== 'rect' && mode !== 'crop-select')) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+      const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+      rectStart = [x, y];
+      rectPreview = [x, y, x, y];
+      redraw();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      updatePointerFromEvent(e);
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+      const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+
+      // Live rectangle preview while dragging.
+      if (currentImage && (mode === 'rect' || mode === 'crop-select') && rectStart) {
+        const [x1, y1] = rectStart;
+        rectPreview = [x1, y1, x, y];
+      }
+
+      // Hover behavior directly on image annotations.
+      if (currentImage && !rectStart) {
+        const hitId = findAnnotationAt(x, y);
+        if (hitId !== hoveredAnnotationId) {
+          if (hitId == null) {
+            hoveredAnnotationId = null;
+            setHoverInfo('');
+            showCursorLabel('', 0, 0);
+            syncAnnoListHoverState();
+            redraw();
+            renderCropPreview();
+          } else {
+            setHoveredAnnotation(hitId);
+          }
+        }
+        const ann = annotations.find((a) => a.id === hitId);
+        showCursorLabel(ann ? ann.name : '', x, y);
+      }
+
+      if ((mode === 'rect' || mode === 'crop-select') && rectStart) {
+        redraw();
+      }
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (!currentImage || (mode !== 'rect' && mode !== 'crop-select') || !rectStart) return;
+      const rect = canvas.getBoundingClientRect();
+      const x2 = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+      const y2 = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+      const [x1, y1] = rectStart;
+      rectStart = null;
+      rectPreview = null;
+      if (mode === 'crop-select') {
+        cropRect = normalizeRect([x1, y1, x2, y2]);
+        cropMarks = [];
+        cropPendingPolygons = [];
+        buildCropSource();
+        renderCropPreview();
+        setStatus('Crop selected.');
+      } else {
+        marks.push({ type: 'rectangle', data: [x1, y1, x2, y2], label: 1 });
+        runFullInference();
+      }
+      redraw();
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (rectStart) {
+        rectStart = null;
+        rectPreview = null;
+      }
+      if (hoveredAnnotationId !== null) {
+        hoveredAnnotationId = null;
+        setHoverInfo('');
+        syncAnnoListHoverState();
+      }
+      showCursorLabel('', 0, 0);
+      redraw();
+      renderCropPreview();
+    });
+
+    modeAddBtn.onclick = () => { mode = 'point-add'; syncModeButtons(); setStatus('Mode: point+'); };
+    modeRemoveBtn.onclick = () => { mode = 'point-remove'; rectStart = null; rectPreview = null; syncModeButtons(); redraw(); setStatus('Mode: point-'); };
+    modeRectBtn.onclick = () => { mode = 'rect'; rectStart = null; rectPreview = null; syncModeButtons(); redraw(); setStatus('Mode: rectangle'); };
+    modeCropBtn.onclick = () => { mode = 'crop-select'; rectStart = null; rectPreview = null; syncModeButtons(); redraw(); setStatus('Mode: crop-select'); };
+
+    document.getElementById('clearPromptsBtn').onclick = () => {
+      marks = [];
+      cropMarks = [];
+      rectStart = null;
+      rectPreview = null;
+      renderCropPreview();
+      redraw();
+      setStatus('Cleared prompts');
+      triggerAutosave('clear_prompts');
+    };
+    document.getElementById('clearMasksBtn').onclick = () => {
+      if (autoSaveJson.checked && annotations.length) {
+        const confirmed = window.confirm(
+          'Clear masks will delete all current shapes, and autosave will overwrite the sidecar JSON with an empty annotation list. Continue?'
+        );
+        if (!confirmed) {
+          setStatus('Clear masks canceled.');
+          return;
+        }
+      }
+      annotations = [];
+      pendingPolygons = [];
+      cropPendingPolygons = [];
+      selectedAnnotationId = null;
+      hoveredAnnotationId = null;
+      setHoverInfo('');
+      showCursorLabel('', 0, 0);
+      renderCropPreview();
+      renderAnnotations();
+      syncAnnoListHoverState();
+      redraw();
+      setStatus('Cleared masks');
+      triggerAutosave('clear_masks');
+    };
+
+    document.getElementById('loadModelBtn').onclick = loadModel;
+    document.getElementById('setWorkdirBtn').onclick = applyWorkdir;
+    document.getElementById('applyVramBtn').onclick = async () => {
+      setStatus('Applying VRAM options...');
+      const payload = {
+        cuda_low_mem: optLowMem.checked,
+        disable_tensorrt: optNoTrt.checked,
+        cap_cuda_mem: optCapMem.checked,
+        tiny_embed_cache: optTinyCache.checked,
+        disable_preload: optNoPreload.checked,
+      };
+      const res = await fetch('/api/runtime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        setStatus(`Apply failed: ${await res.text()}`);
+        return;
+      }
+      const out = await res.json();
+      setStatus(`Applied. Unloaded models: ${out.unloaded_models}.`);
+    };
+    document.getElementById('resetBtn').onclick = async () => {
+      setStatus('Unloading models and clearing GPU memory...');
+      const res = await fetch('/api/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_name: null, clear_images: true }),
+      });
+      if (!res.ok) {
+        setStatus(`Reset failed: ${await res.text()}`);
+        return;
+      }
+      const out = await res.json();
+      marks = [];
+      cropMarks = [];
+      annotations = [];
+      pendingPolygons = [];
+      cropPendingPolygons = [];
+      cropRect = null;
+      cropSourceCanvas = null;
+      selectedAnnotationId = null;
+      hoveredAnnotationId = null;
+      setHoverInfo('');
+      showCursorLabel('', 0, 0);
+      currentImage = null;
+      currentImageId = null;
+      renderCropPreview();
+      renderAnnotations();
+      syncAnnoListHoverState();
+      redraw();
+      setStatus(`Reset done. Unloaded models: ${out.unloaded_models}.`);
+      triggerAutosave('reset');
+    };
+    let fullInferenceInFlight = false;
+    async function runFullInference(overrides = null) {
+      if (fullInferenceInFlight) return;
+      if (!currentImageId) {
+        setStatus('Upload an image first');
+        return;
+      }
+      fullInferenceInFlight = true;
+      try {
+        const payload = { ...buildInferencePayload(currentImageId, marks), ...(overrides || {}) };
+        setStatus('Running inference...');
+        const res = await fetch('/api/infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          setStatus(`Inference failed: ${await res.text()}`);
+          return;
+        }
+        const out = await res.json();
+        const polys = out.polygons || [];
+        if (!polys.length) {
+          setStatus('Done. No masks found.');
+          return;
+        }
+        pendingPolygons = polys;
+        cropPendingPolygons = [];
+        redraw();
+        renderCropPreview();
+        setStatus(`Inference done. ${polys.length} proposal mask(s) visible.`);
+        const defaultLabel = (textPrompt.value || 'AUTOLABEL_OBJECT').trim() || 'AUTOLABEL_OBJECT';
+        requestAnimationFrame(() => {
+          openActionWheel(defaultLabel, pendingPolygons, 'full');
+        });
+      } finally {
+        fullInferenceInFlight = false;
+      }
+    }
+
+    document.getElementById('clearAnnBtn').onclick = () => {
+      annotations = [];
+      pendingPolygons = [];
+      cropPendingPolygons = [];
+      selectedAnnotationId = null;
+      hoveredAnnotationId = null;
+      setHoverInfo('');
+      showCursorLabel('', 0, 0);
+      renderAnnotations();
+      syncAnnoListHoverState();
+      renderCropPreview();
+      redraw();
+      setStatus('Cleared annotations');
+      triggerAutosave('clear_annotations');
+    };
+
+    document.getElementById('downloadAnnBtn').onclick = () => {
+      if (!annotations.length) {
+        setStatus('No annotations to export');
+        return;
+      }
+      const payload = buildAnnotationExportPayload('manual_download');
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'annotations.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus('Downloaded annotations.json');
+    };
+
+    document.getElementById('wheelSaveNew').onclick = () => {
+      if (!pendingPolygons.length) {
+        closeActionWheel();
+        return;
+      }
+      savePendingAnnotations(wheelLabelInput.value);
+    };
+    document.getElementById('wheelSaveExisting').onclick = () => {
+      if (!pendingPolygons.length) {
+        closeActionWheel();
+        return;
+      }
+      const selected = (wheelLabelSelect.value || '').trim();
+      if (!selected) {
+        setStatus('Choose an existing label first');
+        return;
+      }
+      lastSelectedExistingLabel = selected;
+      savePendingAnnotations(selected);
+    };
+    document.getElementById('wheelCancel').onclick = () => {
+      closeActionWheel(false);
+      setStatus('Save canceled. Proposal kept visible.');
+    };
+    document.getElementById('wheelDiscard').onclick = () => {
+      discardPendingProposal();
+      setStatus('Proposal discarded. Ready for prompts.');
+    };
+    wheelLabelInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('wheelSaveNew').click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        document.getElementById('wheelCancel').click();
+      }
+    });
+    actionWheelOverlay.addEventListener('mousedown', (e) => {
+      if (e.target === actionWheelOverlay) {
+        document.getElementById('wheelCancel').click();
+      }
+    });
+
+    // Drag wheel by grabbing the center panel (without interfering with inputs/selects).
+    actionWheel.addEventListener('mousedown', (e) => {
+      const isCenter = !!e.target.closest('.wheel-center');
+      const interactive = ['INPUT', 'SELECT', 'BUTTON', 'OPTION'].includes(e.target.tagName);
+      if (!isCenter || interactive) return;
+      wheelDragging = true;
+      const rect = actionWheel.getBoundingClientRect();
+      wheelDragOffsetX = e.clientX - (rect.left + rect.width / 2);
+      wheelDragOffsetY = e.clientY - (rect.top + rect.height / 2);
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!wheelDragging || !actionWheelOverlay.classList.contains('open')) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const pad = 150;
+      const cx = Math.max(pad, Math.min(vw - pad, e.clientX - wheelDragOffsetX));
+      const cy = Math.max(pad, Math.min(vh - pad, e.clientY - wheelDragOffsetY));
+      actionWheel.style.left = `${cx}px`;
+      actionWheel.style.top = `${cy}px`;
+    });
+    window.addEventListener('mouseup', () => {
+      wheelDragging = false;
+    });
+
+    cropScaleInput.addEventListener('input', () => {
+      cropScale = Number(cropScaleInput.value);
+      cropScaleValue.textContent = `${cropScale.toFixed(1)}x`;
+      renderCropPreview();
+    });
+
+    cropCanvas.addEventListener('click', (e) => {
+      updatePointerFromEvent(e);
+      if (!cropSourceCanvas || mode === 'crop-select') return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const x = Math.round((e.clientX - rect.left) * (cropCanvas.width / rect.width) / cropScale);
+      const y = Math.round((e.clientY - rect.top) * (cropCanvas.height / rect.height) / cropScale);
+      if (x < 0 || y < 0 || x > cropSourceCanvas.width || y > cropSourceCanvas.height) return;
+      if (mode === 'rect') return;
+      const label = e.shiftKey || mode === 'point-remove' ? 0 : 1;
+      cropMarks.push({ type: 'point', data: [x, y], label });
+      renderCropPreview();
+      runCropInference();
+    });
+
+    let cropRectStart = null;
+    cropCanvas.addEventListener('mousedown', (e) => {
+      updatePointerFromEvent(e);
+      if (!cropSourceCanvas || mode !== 'rect') return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const x = Math.round((e.clientX - rect.left) * (cropCanvas.width / rect.width) / cropScale);
+      const y = Math.round((e.clientY - rect.top) * (cropCanvas.height / rect.height) / cropScale);
+      cropRectStart = [x, y];
+    });
+    cropCanvas.addEventListener('mouseup', (e) => {
+      updatePointerFromEvent(e);
+      if (!cropSourceCanvas || mode !== 'rect' || !cropRectStart) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const x2 = Math.round((e.clientX - rect.left) * (cropCanvas.width / rect.width) / cropScale);
+      const y2 = Math.round((e.clientY - rect.top) * (cropCanvas.height / rect.height) / cropScale);
+      const [x1, y1] = cropRectStart;
+      cropRectStart = null;
+      cropMarks.push({ type: 'rectangle', data: [x1, y1, x2, y2], label: 1 });
+      renderCropPreview();
+      runCropInference();
+    });
+
+    document.getElementById('clearCropBtn').onclick = () => {
+      cropRect = null;
+      cropSourceCanvas = null;
+      cropMarks = [];
+      cropPendingPolygons = [];
+      renderCropPreview();
+      redraw();
+      setStatus('Crop cleared');
+    };
+    document.getElementById('clearCropMarksBtn').onclick = () => {
+      cropMarks = [];
+      cropPendingPolygons = [];
+      renderCropPreview();
+      setStatus('Crop marks cleared');
+    };
+
+    async function uploadCropSource() {
+      if (!cropSourceCanvas) return null;
+      const blob = await new Promise((resolve) => cropSourceCanvas.toBlob(resolve, 'image/png'));
+      const form = new FormData();
+      form.append('file', blob, `crop_${Date.now()}.png`);
+      const res = await fetch('/api/image/upload', { method: 'POST', body: form });
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      const data = await res.json();
+      return data.image_id;
+    }
+
+    let cropInferenceInFlight = false;
+    async function runCropInference(overrides = null) {
+      if (cropInferenceInFlight) return;
+      if (!cropSourceCanvas || !cropRect) {
+        setStatus('Select a crop first');
+        return;
+      }
+      cropInferenceInFlight = true;
+      try {
+        let cropImageId = null;
+        try {
+          cropImageId = await uploadCropSource();
+        } catch (err) {
+          setStatus(`Crop upload failed: ${String(err)}`);
+          return;
+        }
+        const payload = { ...buildInferencePayload(cropImageId, cropMarks), ...(overrides || {}) };
+        setStatus('Running crop inference...');
+        const res = await fetch('/api/infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          setStatus(`Crop inference failed: ${await res.text()}`);
+          return;
+        }
+        let out = await res.json();
+        let cropPolys = out.polygons || [];
+
+      // SAM3 crop fallback: if prompt+marks produced nothing, retry text-only
+      // with a slightly lower threshold for small cropped regions.
+      const isSam3Model = isSam3Selected();
+      const hasTextPrompt = ((payload.text_prompt || '').trim().length > 0);
+      if (isSam3Model && hasTextPrompt && cropPolys.length === 0) {
+        const retryPayload = {
+          ...payload,
+          marks: [],
+          confidence_threshold: Math.min(Number(confidence.value), 0.25),
+        };
+        const retryRes = await fetch('/api/infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(retryPayload),
+        });
+        if (retryRes.ok) {
+          out = await retryRes.json();
+          cropPolys = out.polygons || [];
+          if (cropPolys.length > 0) {
+            setStatus(`Crop inference recovered via SAM3 text-only fallback (${cropPolys.length} masks).`);
+          }
+        }
+      }
+
+        cropPendingPolygons = cropPolys;
+        renderCropPreview();
+        if (!cropPolys.length) {
+          setStatus('Crop inference done. No masks found.');
+          return;
+        }
+        const [x1, y1] = normalizeRect(cropRect);
+        pendingPolygons = cropPolys.map((poly) => poly.map((pt) => [pt[0] + x1, pt[1] + y1]));
+        redraw();
+        setStatus(`Crop inference done. ${pendingPolygons.length} proposal mask(s) mapped to full image.`);
+        const defaultLabel = (textPrompt.value || 'AUTOLABEL_OBJECT').trim() || 'AUTOLABEL_OBJECT';
+        requestAnimationFrame(() => {
+          openActionWheel(defaultLabel, pendingPolygons, 'crop');
+        });
+      } finally {
+        cropInferenceInFlight = false;
+      }
+    }
+
+    document.getElementById('inferTextBtn').onclick = () => {
+      const prompt = (textPrompt.value || '').trim();
+      if (!prompt) {
+        setStatus('Enter a text prompt first');
+        return;
+      }
+      const overrides = {
+        marks: [],
+        text_prompt: prompt,
+      };
+      if (cropRect && cropSourceCanvas) {
+        runCropInference(overrides);
+      } else {
+        runFullInference(overrides);
+      }
+    };
+
+    Promise.all([fetchModels(), syncRuntimeOptions(), syncWorkdir()]).then(() => {
+      syncModeButtons();
+      renderAnnotations();
+      setStatus('Ready');
+    });
+    modelSelect.addEventListener('change', syncPromptModeAvailability);
+  </script>
+</body>
+</html>
