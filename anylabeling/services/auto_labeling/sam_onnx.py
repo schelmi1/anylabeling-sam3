@@ -172,7 +172,7 @@ class SegmentAnythingONNX:
             "transform_matrix": transform_matrix,
         }
 
-    def predict_masks(self, embedding, prompt):
+    def predict_masks(self, embedding, prompt, confidence_threshold: float = 0.5):
         """
         Predict masks for a single image.
         """

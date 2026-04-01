@@ -43,7 +43,9 @@ class SegmentAnything2CoreML:
             "original_size": original_size,
         }
 
-    def predict_masks(self, embedding: dict, prompt: list) -> list[np.ndarray]:
+    def predict_masks(
+        self, embedding: dict, prompt: list, confidence_threshold: float = 0.5
+    ) -> list[np.ndarray]:
         """Predicts masks based on image embedding and prompt."""
         points = []
         labels = []
@@ -102,6 +104,9 @@ class SegmentAnything2CoreML:
         # Select the best mask based on score
         scores = mask_output["scores"]
         best_mask_idx = np.argmax(scores)
+        best_score = float(np.asarray(scores).reshape(-1)[int(best_mask_idx)])
+        if best_score < float(confidence_threshold):
+            return np.array([])
         mask = low_res_masks[0, best_mask_idx]  # Assuming batch size of 1
 
         # Resize the mask back to the original image size

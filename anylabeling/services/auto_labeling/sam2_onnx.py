@@ -29,7 +29,9 @@ class SegmentAnything2ONNX:
             "original_size": original_size,
         }
 
-    def predict_masks(self, embedding, prompt) -> list[np.ndarray]:
+    def predict_masks(
+        self, embedding, prompt, confidence_threshold: float = 0.5
+    ) -> list[np.ndarray]:
         points = []
         labels = []
         for mark in prompt:
@@ -55,6 +57,7 @@ class SegmentAnything2ONNX:
             high_res_feats_1,
             points,
             labels,
+            confidence_threshold=confidence_threshold,
         )
 
         return masks
@@ -173,6 +176,7 @@ class SAM2ImageDecoder:
         high_res_feats_1: np.ndarray,
         point_coords: list[np.ndarray] | np.ndarray,
         point_labels: list[np.ndarray] | np.ndarray,
+        confidence_threshold: float = 0.5,
     ) -> tuple[list[np.ndarray], ndarray]:
         return self.predict(
             image_embed,
@@ -180,6 +184,7 @@ class SAM2ImageDecoder:
             high_res_feats_1,
             point_coords,
             point_labels,
+            confidence_threshold=confidence_threshold,
         )
 
     def predict(
@@ -189,6 +194,7 @@ class SAM2ImageDecoder:
         high_res_feats_1: np.ndarray,
         point_coords: list[np.ndarray] | np.ndarray,
         point_labels: list[np.ndarray] | np.ndarray,
+        confidence_threshold: float = 0.5,
     ) -> tuple[list[np.ndarray], ndarray]:
         inputs = self.prepare_inputs(
             image_embed,
@@ -200,7 +206,7 @@ class SAM2ImageDecoder:
 
         outputs = self.infer(inputs)
 
-        return self.process_output(outputs)
+        return self.process_output(outputs, confidence_threshold=confidence_threshold)
 
     def prepare_inputs(
         self,
@@ -287,13 +293,17 @@ class SAM2ImageDecoder:
         return outputs
 
     def process_output(
-        self, outputs: list[np.ndarray]
+        self, outputs: list[np.ndarray], confidence_threshold: float = 0.5
     ) -> tuple[list[ndarray | Any], ndarray[Any, Any]]:
         scores = outputs[1].squeeze()
         masks = outputs[0][0]
 
         # Select the best masks based on the scores
-        best_mask = masks[np.argmax(scores)]
+        best_mask_idx = int(np.argmax(scores))
+        best_score = float(np.asarray(scores).reshape(-1)[best_mask_idx])
+        if best_score < float(confidence_threshold):
+            return np.array([]), scores
+        best_mask = masks[best_mask_idx]
         best_mask = cv2.resize(best_mask, (self.orig_im_size[1], self.orig_im_size[0]))
         return (
             np.array([[best_mask]]),

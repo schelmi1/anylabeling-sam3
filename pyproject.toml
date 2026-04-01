@@ -52,6 +52,20 @@ dev = [
     "build>=1.2",
     "twine>=6.0",
 ]
+# MetaCLIP2 (Hugging Face Transformers backend)
+metaclip2 = [
+    "torch>=2.2.0",
+    "transformers>=4.47.0",
+    "sentencepiece>=0.2.0",
+]
+# BLIP2 (Hugging Face Transformers backend)
+blip2 = [
+    "torch>=2.2.0",
+    "transformers>=4.47.0",
+    "sentencepiece>=0.2.0",
+    "keybert>=0.8.5",
+    "sentence-transformers>=3.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/vietanhdev/anylabeling"

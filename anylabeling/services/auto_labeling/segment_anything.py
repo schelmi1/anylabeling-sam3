@@ -367,7 +367,11 @@ class SegmentAnything(Model):
                 # The decoder returns 3 quality-level candidates for the same
                 # prompt; use only the first (highest-quality) mask.
                 inference_marks = self.marks if self.prompt_mode != "text" else []
-                masks = self.model.predict_masks(image_embedding, inference_marks)
+                masks = self.model.predict_masks(
+                    image_embedding,
+                    inference_marks,
+                    confidence_threshold=self.confidence_threshold,
+                )
 
                 if masks is None or len(masks) == 0:
                     return AutoLabelingResult([], replace=False)

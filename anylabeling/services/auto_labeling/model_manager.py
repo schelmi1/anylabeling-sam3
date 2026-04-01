@@ -80,7 +80,7 @@ class ModelManager(QObject):
 
                 # Initialize model config if needed
                 if not os.path.isfile(config_file):
-                    model["has_downloaded"] = False
+                    model.setdefault("has_downloaded", False)
                     with open(config_file, "w") as f:
                         yaml.dump(model, f)
 
@@ -117,6 +117,13 @@ class ModelManager(QObject):
                 # present in models.yaml (e.g. "type") are never lost even if
                 # the on-disk file is missing them.
                 model_config.update(file_config)
+                # Keep built-in identity/type authoritative from models.yaml to
+                # avoid stale local configs remapping model families.
+                if not model.get("is_custom_model", False):
+                    model_config["name"] = model.get("name", model_config.get("name"))
+                    model_config["type"] = model.get("type", model_config.get("type"))
+                    if model_config["type"] in ["metaclip2", "blip2"] and model.get("hf_model_id"):
+                        model_config["hf_model_id"] = model["hf_model_id"]
                 model_config["config_file"] = os.path.normpath(
                     os.path.abspath(config_file)
                 )
@@ -198,7 +205,8 @@ class ModelManager(QObject):
             "type" not in model_config
             or "display_name" not in model_config
             or "name" not in model_config
-            or model_config["type"] not in ["segment_anything", "yolov5", "yolov8"]
+            or model_config["type"]
+            not in ["segment_anything", "yolov5", "yolov8", "metaclip2", "blip2"]
         ):
             self.new_model_status.emit(
                 self.tr("Error in loading custom model: Invalid config file format.")

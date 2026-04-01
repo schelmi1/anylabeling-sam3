@@ -24,6 +24,7 @@ This is a living specification for the project. It records requirements provided
 - Browser app lives separately from desktop GUI code path.
 - Single-user localhost style usage (not full multi-tenant SaaS web app).
 - Support remote usage through SSH port forwarding.
+- Add dataset-folder workflow: user can provide/select a folder path to load image + LabelMe JSON pairs.
 
 ### Core Inference
 
@@ -36,6 +37,69 @@ This is a living specification for the project. It records requirements provided
   - Rectangle
 - SAM3 text prompt support.
 - For SAM3, user must be able to choose prompt mode: text only, visual only, or both.
+
+### Model Families
+
+- Introduce a new `metaclip2` model family using Hugging Face Transformers implementation.
+- For now, support only:
+  - `facebook/metaclip-2-worldwide-s16`
+  - `facebook/metaclip-2-worldwide-s16-384`
+- `metaclip2` models should be visible in the browser app model dropdown.
+- When a `metaclip2` model is selected, the UI should expose a text-label prompt input (comma-separated labels) and show ranked image-vs-text probabilities.
+- Add a MetaCLIP minimum probability input (`0..1` float) in browser UI.
+- Add a gallery-level batch inference action that runs MetaCLIP over all loaded dataset images.
+- Batch inference must write top label and top probability into LabelMe top-level `flags` for each image JSON.
+- Gallery cards must display the stored top label and probability for each item.
+- Batch inference must also persist all prompt labels with their probabilities into LabelMe `flags`.
+- Gallery thumbnails must overlay the full per-label probability list for each image.
+- During gallery batch inference, show a responsive progress bar in the UI.
+- Gallery overlay should display only the top 3 labels/probabilities per image.
+- For MetaCLIP label prompts, automatically template each user label as `an image showing <label>` before model scoring.
+- Introduce a `blip2` model family using Hugging Face Transformers implementation.
+- For now, support:
+  - `Salesforce/blip2-opt-2.7b`
+  - `Salesforce/blip2-opt-2.7b-coco`
+- `blip2` models should appear in the same browser classifier workflow as MetaCLIP2 (text-label scoring, top label/probabilities, gallery batch infer).
+- When BLIP2 is selected and gallery batch infer runs, each image JSON `flags` must include `blip2tag: <top_label>`.
+- If image-level label flags exist in paired JSON files, UI must allow filtering the gallery by those flags.
+- Gallery flag filtering must support an additional probability threshold (`0..1`) for label-based filtering.
+- Gallery stats should be gallery-wide (not per-image): count top-3 labels from each image flags, show label distribution in a hoverable chart, and allow switching chart mode between pie and bar in the left sidebar.
+- Clicking the gallery-wide chart should toggle diagram style between pie and bar (and keep selector in sync).
+- Chart style is controlled exclusively by clicking the gallery-wide chart (no separate dropdown control).
+- When a specific gallery label filter is selected, threshold must apply to that selected label's probability for each image (e.g. `aircraft >= 0.5`).
+- When no specific gallery label filter is selected, threshold applies to top-label probability.
+- Gallery label threshold control should be a slider with live numeric readout.
+- In gallery cards, keep a compact top-1 label tag; when more labels exist, append `...` and show the full label/probability list on hover of that lower tag.
+- Gallery image preview should also show top-3 labels/probabilities as an in-image overlay.
+- Sidebar order requirement: place Annotations section above Controls section.
+- Controls section height should be content-driven/dynamic (no fixed/stretch row allocation).
+- Annotation list panel should be vertically resizable by the user.
+- `Clear Prompts` and `Clear Masks` controls should live in the Prompt Tools section (not Controls).
+- `Run Whole Gallery` should execute only on the currently filtered gallery subset (respecting active gallery label filter and threshold), not on all loaded images.
+- Main stage should clearly communicate sections as tabs: `Gallery` and `Image`; the prompt instruction text should appear in the `Image` tab header.
+- Model dropdown should be categorized: classifier families (BLIP2/MetaCLIP2) under `Gallery Models`, SAM models under `Image Models`.
+- Gallery classifier batch API/UX naming should be model-family agnostic (`classifier`), not MetaCLIP-specific, when BLIP2 is selected.
+- If a gallery model (BLIP2/MetaCLIP2) is selected, Prompt Tools must be visually grayed out and disabled.
+- Gallery model batch processing progress UI should appear centered in the main stage and show detailed live info (selected model, current input size, current item, dynamic progress bar).
+- When BLIP2 is selected, classifier label textbox should be hidden and BLIP2 should generate captions; gallery writes caption into flags via `blip2tag`.
+- BLIP2 should run a second-stage KeyBERT keyword extraction on the generated caption and persist these label keywords to `flags.blip2_keywords`; these keywords are the effective BLIP2 labels for gallery workflows.
+- Center progress HUD should be larger for readability, place current item on the left, and become clickable to close after run completion/failure.
+- Gallery running/progress UI should render as a separate top-layer overlay element above the whole app while running.
+- Progress overlay should display initialization stages (e.g., loading model weights / preparing pipeline) before per-image progress begins.
+- Gallery should provide a label-source selector so users can choose whether gallery labels/filtering/stats are driven by BLIP2 labels or MetaCLIP2 labels.
+- Header should include a `?` help control that launches a guided tutorial tour: step-by-step, highlighting relevant elements, describing their purpose, and requiring explicit user continue action for each step.
+- Gallery filtering should support a `First word only` mode: filter options display first words only, and matching/threshold checks should be performed against first-word-normalized labels.
+- Gallery filter matching must use labels from the currently selected gallery label source (to avoid unrelated-flag mismatches), with fallback to raw image flags only when no classifier labels exist.
+- Guided tutorial content should explicitly explain model categories: Gallery Models perform dataset-wide classification/tagging runs, while Image Models perform per-image interactive inference.
+- Guided tutorial should include an explicit `Exit` button so users can stop the tour at any step.
+- Gallery filter dropdown should display per-label image counts and sort labels by descending count.
+- Add a gallery filter checkbox to sort image-flag labels alphabetically (A→Z) as an alternative to count-based sorting.
+- Application branding for the web app should be `AnyLabeling-Next`.
+- If an Image Model is selected, `Run Whole Gallery` must be disabled/greyed out; it is enabled only for Gallery Models.
+- If a SAM2 model is selected, the SAM3 text prompt textbox should be disabled/greyed out.
+- Disabled `Run Whole Gallery` button state should be strongly visually greyed out for clear affordance.
+- `Classifier Min Probability` input should be disabled/greyed out when an Image Model is selected.
+- `Confidence` input should apply to both SAM2 and SAM3 (and only be disabled for Gallery Models).
 
 ### GPU / Runtime Controls
 
@@ -76,6 +140,7 @@ Current VRAM options:
 - Label must be shown near the mouse cursor when hovering an annotation region.
 - Annotation export should be available (JSON).
 - When an image is loaded, if a corresponding sidecar JSON exists in the working directory image folder, annotations must be auto-loaded into the annotation list and canvas.
+- When loading from dataset folder, if LabelMe JSON with matching stem exists, annotations must auto-load from that JSON.
 - After inference creates mask(s), app must prompt for a label name before saving annotations.
 - Replace modal prompt with a multi-selection radial wheel at current mouse position.
 - Wheel should open outside the mask proposal bounding box (next to proposal), not on top of cursor/proposal.
@@ -116,6 +181,13 @@ Current VRAM options:
 - UI should feel modern and not cluttered.
 - Group related controls and reduce visual noise.
 - Keep advanced controls present but not dominant.
+- Show dataset image previews in a gallery strip at the top of the main tab; clicking a preview loads that image and its annotations.
+- Keep gallery compact in height (significantly reduced vertical footprint) while preserving thumbnail card width.
+- Gallery should not span most of the stage width; keep it as a compact, left-aligned strip.
+- Gallery container height should be around 200px.
+- Gallery height should be adaptive with ~200px cap, without leaving empty vertical gaps before the main image/crop area.
+- Gallery should span full available width across the top of the main tab.
+- No large empty vertical gap is allowed between gallery and main workspace content.
 
 ## Reliability and Stability Requirements
 
@@ -151,6 +223,30 @@ Optional host/port overrides:
 ANYLABELING_WEBAPP_HOST=0.0.0.0 ANYLABELING_WEBAPP_PORT=8000 ./webapp/backend/run.sh
 ```
 
+For MetaCLIP2 support, install extras:
+
+```bash
+pip install -e ".[metaclip2]"
+```
+
+For BLIP2 support, install extras:
+
+```bash
+pip install -e ".[blip2]"
+```
+
+If MetaCLIP2 load fails with `model type metaclip_2 not recognized`, upgrade transformers in the same runtime env and restart server:
+
+```bash
+pip install --upgrade transformers sentencepiece
+```
+
+If still failing, install transformers from source:
+
+```bash
+pip install git+https://github.com/huggingface/transformers.git
+```
+
 Remote usage via SSH port-forward:
 
 ```bash
@@ -162,6 +258,13 @@ ssh -L 8000:127.0.0.1:8000 <user>@<remote-host>
 - Persistence format and location for browser-side annotations beyond manual JSON export.
 - Folder-based dataset navigation and keyboard-heavy annotation workflows in browser app.
 - SAM3 memory reduction strategy beyond runtime options (e.g., fp16 model assets, reduced input exports).
+
+## Gallery UX Requirements
+
+- Dataset gallery must support a draggable height resize handle.
+- Gallery thumbnails must use `200x200` image previews.
+- Gallery layout must auto-manage columns and rows based on available width (responsive grid wrapping).
+- Chosen gallery height should persist across reloads.
 
 ## Future Requirement Intake (Process)
 
@@ -212,3 +315,27 @@ When a new requirement is provided:
 - 2026-03-26: Upgraded label colors to a more distinctive high-contrast palette.
 - 2026-03-26: Added active-state highlight requirement for selected prompt tool button.
 - 2026-03-26: Added install and server startup instructions to this specs document.
+- 2026-04-01: Added `metaclip2` model family requirement with two allowed HF model IDs.
+- 2026-04-01: Added dataset-folder image+LabelMe pair loading and top-of-main-tab gallery preview requirements.
+- 2026-04-01: Hardened MetaCLIP2 tokenizer/processor fallback to support non-CLIP tokenizer backends (e.g. XLM-R) in HF models.
+- 2026-04-01: Added MetaCLIP2 troubleshooting note for `metaclip_2` architecture requiring newer transformers build.
+- 2026-04-01: Reduced gallery vertical size while keeping width unchanged.
+- 2026-04-01: Constrained gallery strip width so it does not span most of the screen.
+- 2026-04-01: Set gallery height target to about 200px.
+- 2026-04-01: Made gallery height adaptive (capped at ~200px) to remove empty gap before workspace.
+- 2026-04-01: Set gallery to span full width at the top of the main tab.
+- 2026-04-01: Fixed main stage row layout to remove large empty gap between gallery and workspace.
+- 2026-04-01: Added draggable gallery height with persistent setting, and switched gallery to responsive `200x200` grid previews with automatic row/column wrapping.
+- 2026-04-01: Added MetaCLIP gallery batch inference with configurable min probability, persisted LabelMe `flags` classification fields, and gallery-card display of top label/probability.
+- 2026-04-01: Extended MetaCLIP gallery batch inference to persist full label-probability distributions in flags and overlay those scores on each gallery thumbnail.
+- 2026-04-01: Added async gallery-inference progress bar, limited gallery overlay to top-3 labels, and added automatic MetaCLIP prompt templating (`an image showing <label>`).
+- 2026-04-01: Added gallery filtering by image label flags parsed from JSON `flags`.
+- 2026-04-01: Added `blip2` model family support (webapp + desktop registration) with classifier-compatible single-image and gallery inference flow.
+- 2026-04-01: Updated model-specific control visibility: show SAM confidence control only for SAM image models.
+- 2026-04-01: Updated model-specific control visibility: show classifier minimum probability only for gallery models.
+- 2026-04-01: Fixed SAM2 confidence handling for browser/desktop paths by applying confidence threshold in SAM2 mask selection (instead of ignoring it).
+- 2026-04-01: Changed SAM confidence control UI from number field to slider with live value display.
+- 2026-04-01: Set SAM3 default prompt tool to rectangle when switching into a SAM3 model.
+- 2026-04-01: Split combined sidebar card into separate `Session` and `Model` tabs.
+- 2026-04-01: Refined tab layout to two separate tab cards (Session card and Model card), switched by shared tab buttons.
+- 2026-04-01: Reverted tabbed sidebar layout; Session, Model, Prompt Tools, Annotations, and Controls are standalone cards.

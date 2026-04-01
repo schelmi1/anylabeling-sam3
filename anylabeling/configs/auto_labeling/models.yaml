@@ -35,6 +35,26 @@
   max_height: 1008
   max_width: 1008
   type: segment_anything
+- name: "metaclip2_worldwide_s16"
+  display_name: MetaCLIP2 (Worldwide-S16)
+  hf_model_id: facebook/metaclip-2-worldwide-s16
+  has_downloaded: true
+  type: metaclip2
+- name: "metaclip2_worldwide_s16_384"
+  display_name: MetaCLIP2 (Worldwide-S16-384)
+  hf_model_id: facebook/metaclip-2-worldwide-s16-384
+  has_downloaded: true
+  type: metaclip2
+- name: "blip2_itm_vit_g"
+  display_name: BLIP2 Caption (OPT-2.7B)
+  hf_model_id: Salesforce/blip2-opt-2.7b
+  has_downloaded: true
+  type: blip2
+- name: "blip2_itm_vit_g_coco"
+  display_name: BLIP2 Caption (OPT-2.7B COCO)
+  hf_model_id: Salesforce/blip2-opt-2.7b-coco
+  has_downloaded: true
+  type: blip2
 - name: "sam2_hiera_tiny_20240803"
   display_name: Segment Anything 2 (Hiera-Tiny)
   download_url: https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.zip

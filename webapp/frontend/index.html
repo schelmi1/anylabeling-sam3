@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AnyLabeling Browser (SAM2/SAM3)</title>
+  <title>AnyLabeling-Next</title>
   <style>
     :root {
       --bg: #f4f7f9;
@@ -14,6 +14,7 @@
       --accent: #0f766e;
       --accent-soft: #e6fffb;
       --shadow: 0 10px 35px rgba(11, 42, 57, 0.12);
+      --gallery-height: 200px;
     }
     * { box-sizing: border-box; }
     body {
@@ -39,18 +40,23 @@
       box-shadow: var(--shadow);
       padding: 14px;
       display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
+      grid-auto-rows: min-content;
       gap: 10px;
       max-height: calc(100vh - 36px);
       overflow: auto;
     }
     .brand {
       display: flex;
-      align-items: baseline;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 8px;
       padding: 4px 2px 10px;
       border-bottom: 1px solid var(--line);
+    }
+    .brand-left {
+      display: grid;
+      gap: 6px;
+      align-items: start;
     }
     .brand h1 {
       margin: 0;
@@ -64,6 +70,24 @@
       border: 1px solid var(--line);
       border-radius: 999px;
       padding: 3px 8px;
+    }
+    .brand-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .help-btn {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid #bfd3e4;
+      background: #f3f9ff;
+      color: #1f3a4f;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
     }
     .card {
       background: #fbfdff;
@@ -108,6 +132,15 @@
       color: #334e68;
       font-weight: 600;
     }
+    #runGalleryMetaBtn:disabled {
+      background: #d5dde6;
+      border-color: #c3ced9;
+      color: #7b8a99;
+      opacity: 1;
+      cursor: not-allowed;
+      box-shadow: none;
+      filter: grayscale(0.35);
+    }
     button.primary {
       background: var(--accent);
       color: #fff;
@@ -127,6 +160,10 @@
       color: var(--muted);
       font-size: 12px;
       line-height: 1.3;
+    }
+    .card.disabled {
+      opacity: 0.5;
+      filter: grayscale(0.15);
     }
     details.card > summary {
       cursor: pointer;
@@ -175,6 +212,76 @@
       pointer-events: none;
     }
     .wheel-overlay.open { display: block; }
+    .tour-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      display: none;
+      background: rgba(9, 20, 31, 0.52);
+    }
+    .tour-overlay.open { display: block; }
+    .tour-highlight {
+      position: fixed;
+      border: 2px solid #38bdf8;
+      border-radius: 10px;
+      box-shadow: 0 0 0 3000px rgba(9, 20, 31, 0.40), 0 0 0 2px rgba(255,255,255,0.24) inset;
+      pointer-events: none;
+      transition: all 120ms ease;
+    }
+    .tour-pop {
+      position: fixed;
+      width: min(360px, calc(100vw - 24px));
+      background: #ffffff;
+      border: 1px solid #cfe0ee;
+      border-radius: 12px;
+      box-shadow: 0 14px 34px rgba(7, 28, 47, 0.28);
+      padding: 10px 12px;
+      color: #243b53;
+    }
+    .tour-pop h4 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: #102a43;
+    }
+    .tour-pop p {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.35;
+      color: #334e68;
+    }
+    .tour-row {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .tour-step {
+      font-size: 11px;
+      color: #627d98;
+    }
+    .tour-next {
+      width: auto;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #0f766e;
+      background: #0f766e;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tour-exit {
+      width: auto;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid #bcccdc;
+      background: #f7fbff;
+      color: #334e68;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
     .action-wheel {
       position: absolute;
       width: 280px;
@@ -238,7 +345,7 @@
       box-shadow: var(--shadow);
       padding: 12px;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto auto auto auto 1fr;
       gap: 10px;
       min-height: 0;
     }
@@ -262,6 +369,18 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .stage-tab {
+      display: inline-block;
+      width: fit-content;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #1f3a4f;
+      background: #eef6ff;
+      border: 1px solid #cfe3f6;
+      border-radius: 999px;
+      padding: 5px 10px;
+    }
     .canvas-shell {
       background: #fff;
       border-radius: 12px;
@@ -283,9 +402,12 @@
     .anno-list {
       border: 1px solid var(--line);
       border-radius: 8px;
-      max-height: 220px;
+      height: 220px;
+      min-height: 120px;
+      max-height: 70vh;
       overflow: auto;
       background: #fbfdff;
+      resize: vertical;
     }
     .anno-item {
       padding: 8px;
@@ -377,6 +499,285 @@
       font-size: 12px;
       color: var(--muted);
     }
+    .gallery-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 200px);
+      grid-auto-rows: min-content;
+      gap: 10px;
+      overflow: auto;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      justify-self: stretch;
+      width: 100%;
+      height: var(--gallery-height);
+      align-content: start;
+      align-items: start;
+      justify-content: start;
+    }
+    .gallery-empty {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 4px 2px;
+      grid-column: 1 / -1;
+    }
+    .gallery-resize-handle {
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #d2dde6, #c1d0dc, #d2dde6);
+      cursor: ns-resize;
+      width: 100%;
+      justify-self: stretch;
+    }
+    .gallery-item {
+      width: 200px;
+      border: 1px solid #d1dde6;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      padding: 0;
+      text-align: left;
+    }
+    .gallery-item.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
+    }
+    .gallery-thumb {
+      width: 100%;
+      height: 200px;
+      background: #f2f7fa;
+      object-fit: cover;
+      display: block;
+      border-bottom: 1px solid #e4edf3;
+    }
+    .gallery-thumb-wrap {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      border-bottom: 1px solid #e4edf3;
+      background: #f2f7fa;
+    }
+    .gallery-thumb-wrap .gallery-thumb {
+      border-bottom: none;
+    }
+    .gallery-score-overlay {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 6px;
+      background: rgba(14, 27, 39, 0.76);
+      color: #ecf7ff;
+      border: 1px solid rgba(180, 211, 232, 0.45);
+      border-radius: 8px;
+      padding: 4px 6px;
+      font-size: 10px;
+      max-height: 64px;
+      overflow: auto;
+      text-align: left;
+    }
+    .gallery-chart {
+      width: 100%;
+      height: 78px;
+      display: block;
+    }
+    .gallery-stats-card {
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fcff;
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+    }
+    #galleryStatsChart {
+      cursor: pointer;
+    }
+    .gallery-stats-meta {
+      font-size: 11px;
+      color: #486581;
+    }
+    .gallery-stats-legend {
+      display: grid;
+      gap: 3px;
+      max-height: 120px;
+      overflow: auto;
+      font-size: 11px;
+    }
+    .gallery-stats-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 6px;
+      align-items: center;
+      color: #334e68;
+    }
+    .gallery-stats-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+    .gallery-score-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .gallery-score-row + .gallery-score-row {
+      margin-top: 2px;
+    }
+    .gallery-score-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gallery-score-value {
+      font-variant-numeric: tabular-nums;
+      color: #bfe8ff;
+      flex: 0 0 auto;
+    }
+    .gallery-meta {
+      padding: 3px 5px 4px;
+      font-size: 10px;
+      color: #334e68;
+      line-height: 1.15;
+    }
+    .gallery-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+    .gallery-count {
+      color: #5f7386;
+      display: block;
+      margin-top: 1px;
+    }
+    .gallery-classify {
+      margin-top: 3px;
+      font-size: 10px;
+      color: #1f3a4f;
+      background: #eef6ff;
+      border: 1px solid #d3e7fb;
+      border-radius: 6px;
+      padding: 2px 4px;
+      display: inline-block;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gallery-classify-wrap {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+    }
+    .gallery-classify-pop {
+      display: none;
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 4px);
+      min-width: 170px;
+      max-width: 240px;
+      max-height: 140px;
+      overflow: auto;
+      background: rgba(14, 27, 39, 0.94);
+      color: #ecf7ff;
+      border: 1px solid rgba(180, 211, 232, 0.55);
+      border-radius: 8px;
+      padding: 6px;
+      z-index: 5;
+      box-shadow: 0 8px 24px rgba(5, 18, 28, 0.35);
+    }
+    .gallery-classify-wrap:hover .gallery-classify-pop {
+      display: block;
+    }
+    .gallery-classify-pop-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      white-space: nowrap;
+      font-size: 10px;
+    }
+    .gallery-classify-pop-row + .gallery-classify-pop-row {
+      margin-top: 2px;
+    }
+    .gallery-classify.empty {
+      color: #7a8ea2;
+      background: #f7fafc;
+      border-color: #e3ebf3;
+    }
+    .gallery-progress {
+      margin-top: 8px;
+      display: grid;
+      gap: 4px;
+    }
+    .gallery-progress-text {
+      font-size: 11px;
+      color: #486581;
+    }
+    .gallery-progress-track {
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid #c9d8e6;
+      background: #eff5fb;
+      overflow: hidden;
+    }
+    .gallery-progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #0f766e, #14b8a6);
+      transition: width 140ms linear;
+    }
+    .gallery-run-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 72px 18px 18px;
+      background: rgba(16, 32, 50, 0.16);
+      backdrop-filter: blur(1px);
+    }
+    .gallery-run-overlay.open {
+      display: flex;
+    }
+    .gallery-run-hud {
+      width: min(1080px, 96%);
+      border: 1px solid #c5d7e7;
+      background: #f6fbff;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 24px rgba(16, 42, 67, 0.12);
+      display: grid;
+      gap: 8px;
+      cursor: default;
+    }
+    .gallery-run-hud.dismissable {
+      cursor: pointer;
+    }
+    .gallery-run-meta {
+      display: grid;
+      grid-template-columns: minmax(260px, 2fr) minmax(180px, 1fr) minmax(200px, 1fr);
+      gap: 8px;
+      font-size: 12px;
+      color: #334e68;
+    }
+    .gallery-run-meta b {
+      color: #102a43;
+    }
+    .gallery-run-item {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .gallery-run-hint {
+      font-size: 11px;
+      color: #486581;
+      text-align: right;
+      min-height: 14px;
+    }
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { max-height: none; }
@@ -390,33 +791,89 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <h1>AnyLabeling Browser</h1>
-        <span>SAM2 / SAM3</span>
+        <div class="brand-left">
+          <h1>AnyLabeling-Next</h1>
+          <span>SAM2 / SAM3 / MetaCLIP2 / BLIP2</span>
+        </div>
+        <div class="brand-right">
+          <button id="startTourBtn" class="help-btn" title="Start guided tour">?</button>
+        </div>
       </div>
 
-      <section class="card">
+      <section id="sessionTabPanel" class="card">
         <h2>Session</h2>
         <label for="imageInput">Image</label>
         <input id="imageInput" type="file" accept="image/*" />
+        <label for="datasetFolderInput">Dataset Folder (Server Path)</label>
+        <input id="datasetFolderInput" type="text" placeholder="/path/to/images_and_json" />
+        <div class="checkgrid" style="margin-top:6px;">
+          <label><input type="checkbox" id="datasetRecursive" checked /> Recursive scan</label>
+          <label><input type="checkbox" id="datasetCopyIntoWorkdir" /> Copy files into workdir</label>
+        </div>
+        <div class="row">
+          <button id="loadDatasetBtn">Load Folder</button>
+          <span></span>
+        </div>
+        <label for="galleryFlagFilter">Gallery Filter (Image Flags)</label>
+        <select id="galleryFlagFilter">
+          <option value="">All</option>
+        </select>
+        <div class="checkgrid" style="margin-top:6px;">
+          <label><input type="checkbox" id="galleryFirstWordOnly" /> First word only</label>
+          <label><input type="checkbox" id="gallerySortAlpha" /> Sort alphabetically</label>
+        </div>
+        <label for="galleryLabelSource">Gallery Label Source</label>
+        <select id="galleryLabelSource">
+          <option value="auto">Auto (Latest Classifier)</option>
+          <option value="metaclip2">MetaCLIP2 Labels</option>
+          <option value="blip2">BLIP2 Labels</option>
+        </select>
+        <label for="galleryFlagThreshold">Gallery Label Threshold (0-1)</label>
+        <div class="row3">
+          <span>Threshold</span>
+          <span id="galleryFlagThresholdValue">0.00</span>
+        </div>
+        <input id="galleryFlagThreshold" type="range" min="0" max="1" step="0.01" value="0.00" />
+        <div class="gallery-stats-card">
+          <div id="galleryStatsMeta" class="gallery-stats-meta">No gallery stats yet.</div>
+          <div id="galleryStatsChart"></div>
+          <div id="galleryStatsLegend" class="gallery-stats-legend"></div>
+        </div>
+      </section>
+
+      <section id="modelTabPanel" class="card">
+        <h2>Model</h2>
         <label for="modelSelect">Model</label>
         <select id="modelSelect"></select>
-        <label for="textPrompt">SAM3 Text Prompt</label>
+        <label for="textPrompt" id="textPromptLabel">SAM3 Text Prompt</label>
         <input id="textPrompt" type="text" value="visual" />
-        <label for="promptModeSelect">SAM3 Prompt Mode</label>
+        <label for="promptModeSelect" id="promptModeLabel">SAM3 Prompt Mode</label>
         <select id="promptModeSelect">
           <option value="both">Both (Text + Visual)</option>
           <option value="text">Text Only</option>
           <option value="visual">Visual Only</option>
         </select>
-        <label for="confidence">Confidence (SAM3)</label>
-        <input id="confidence" type="number" min="0" max="1" step="0.05" value="0.5" />
+        <div id="confidenceGroup">
+          <label for="confidence" id="confidenceLabel">Confidence (SAM2/SAM3)</label>
+          <div class="row3">
+            <span>Threshold</span>
+            <span id="confidenceValue">0.50</span>
+          </div>
+          <input id="confidence" type="range" min="0" max="1" step="0.01" value="0.50" />
+        </div>
+        <div id="classifierMinProbGroup">
+          <label for="metaMinProb">Classifier Min Probability (0-1)</label>
+          <input id="metaMinProb" type="number" min="0" max="1" step="0.01" value="0.30" />
+        </div>
+        <label id="metaclipScoresLabel" style="display:none;">Classifier Probabilities</label>
+        <div id="metaclipScores" class="anno-list" style="display:none; max-height:130px;"></div>
         <div class="row">
           <button class="ghost" id="loadModelBtn">Load Model</button>
-          <span></span>
+          <button id="runGalleryMetaBtn">Run Whole Gallery</button>
         </div>
       </section>
 
-      <section class="card">
+      <section id="promptToolsCard" class="card">
         <h2>Prompt Tools</h2>
         <div class="row">
           <button id="modeAdd">Point +</button>
@@ -430,11 +887,24 @@
           <button id="inferTextBtn">Infer Text</button>
           <span></span>
         </div>
+        <div class="row">
+          <button id="clearPromptsBtn">Clear Prompts</button>
+          <button id="clearMasksBtn">Clear Masks</button>
+        </div>
         <div class="tool-hint">Shift+click adds a negative point.</div>
       </section>
 
-      <details class="card" open>
-        <summary>Controls</summary>
+      <section id="annotationsTabPanel" class="card">
+        <h2>Annotations</h2>
+        <div id="annoList" class="anno-list"></div>
+        <div class="row">
+          <button id="downloadAnnBtn">Download JSON</button>
+          <button id="clearAnnBtn">Clear List</button>
+        </div>
+      </section>
+
+      <section id="controlsTabPanel" class="card">
+        <h2>Controls</h2>
         <div class="checkgrid">
           <label><input type="checkbox" id="optLowMem" checked /> CUDA low-memory mode</label>
           <label><input type="checkbox" id="optNoTrt" checked /> Disable TensorRT</label>
@@ -451,30 +921,41 @@
         </div>
         <div class="row">
           <button id="resetBtn">Clear GPU / Unload</button>
-          <button id="clearPromptsBtn">Clear Prompts</button>
-        </div>
-        <div class="row">
-          <button id="clearMasksBtn">Clear Masks</button>
           <span></span>
         </div>
-      </details>
-
-      <details class="card" open>
-        <summary>Annotations</summary>
-        <div id="annoList" class="anno-list"></div>
-        <div class="row">
-          <button id="downloadAnnBtn">Download JSON</button>
-          <button id="clearAnnBtn">Clear List</button>
-        </div>
-      </details>
+      </section>
 
       <div class="status" id="status">Ready</div>
     </aside>
 
     <main class="stage">
       <div class="stage-head">
-        <div>Click points or drag a box, then run inference.</div>
-        <div id="hoverInfo" class="hover-pill">Hover an annotation to preview label</div>
+        <span class="stage-tab">Gallery</span>
+      </div>
+      <div id="galleryBar" class="gallery-bar">
+        <div class="gallery-empty">No dataset loaded yet.</div>
+      </div>
+      <div id="galleryResizeHandle" class="gallery-resize-handle" title="Drag to resize gallery"></div>
+      <div class="stage-head">
+        <span class="stage-tab">Image</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <div>Click points or drag a box, then run inference.</div>
+          <div id="hoverInfo" class="hover-pill">Hover an annotation to preview label</div>
+        </div>
+      </div>
+      <div id="galleryProgressWrap" class="gallery-run-overlay">
+        <div id="galleryProgressPanel" class="gallery-run-hud">
+          <div class="gallery-run-meta">
+            <div class="gallery-run-item"><b>Current Item:</b> <span id="galleryProgressItem">-</span></div>
+            <div><b>Model:</b> <span id="galleryProgressModel">-</span></div>
+            <div><b>Input Size:</b> <span id="galleryProgressInputSize">-</span></div>
+          </div>
+          <div id="galleryProgressText" class="gallery-progress-text">0 / 0</div>
+          <div class="gallery-progress-track">
+            <div id="galleryProgressFill" class="gallery-progress-fill"></div>
+          </div>
+          <div id="galleryProgressHint" class="gallery-run-hint"></div>
+        </div>
       </div>
       <div class="workspace">
         <div class="canvas-shell">
@@ -521,9 +1002,61 @@
     </div>
   </div>
 
+  <div id="tourOverlay" class="tour-overlay">
+    <div id="tourHighlight" class="tour-highlight"></div>
+    <div id="tourPop" class="tour-pop">
+      <h4 id="tourTitle">Guided Tour</h4>
+      <p id="tourText"></p>
+      <div class="tour-row">
+        <span id="tourStep" class="tour-step"></span>
+        <div style="display:flex; gap:8px;">
+          <button id="tourExitBtn" class="tour-exit">Exit</button>
+          <button id="tourNextBtn" class="tour-next">Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const modelSelect = document.getElementById('modelSelect');
     const imageInput = document.getElementById('imageInput');
+    const datasetFolderInput = document.getElementById('datasetFolderInput');
+    const datasetRecursive = document.getElementById('datasetRecursive');
+    const datasetCopyIntoWorkdir = document.getElementById('datasetCopyIntoWorkdir');
+    const loadDatasetBtn = document.getElementById('loadDatasetBtn');
+    const galleryFlagFilter = document.getElementById('galleryFlagFilter');
+    const galleryFirstWordOnly = document.getElementById('galleryFirstWordOnly');
+    const gallerySortAlpha = document.getElementById('gallerySortAlpha');
+    const galleryLabelSource = document.getElementById('galleryLabelSource');
+    const galleryFlagThreshold = document.getElementById('galleryFlagThreshold');
+    const galleryFlagThresholdValue = document.getElementById('galleryFlagThresholdValue');
+    const galleryStatsMeta = document.getElementById('galleryStatsMeta');
+    const galleryStatsChart = document.getElementById('galleryStatsChart');
+    const galleryStatsLegend = document.getElementById('galleryStatsLegend');
+    const galleryBar = document.getElementById('galleryBar');
+    const galleryResizeHandle = document.getElementById('galleryResizeHandle');
+    const sessionTabPanel = document.getElementById('sessionTabPanel');
+    const modelTabPanel = document.getElementById('modelTabPanel');
+    const annotationsTabPanel = document.getElementById('annotationsTabPanel');
+    const controlsTabPanel = document.getElementById('controlsTabPanel');
+    const textPromptLabel = document.getElementById('textPromptLabel');
+    const promptModeLabel = document.getElementById('promptModeLabel');
+    const confidenceLabel = document.getElementById('confidenceLabel');
+    const confidenceValue = document.getElementById('confidenceValue');
+    const confidenceGroup = document.getElementById('confidenceGroup');
+    const classifierMinProbGroup = document.getElementById('classifierMinProbGroup');
+    const metaclipScoresLabel = document.getElementById('metaclipScoresLabel');
+    const metaclipScores = document.getElementById('metaclipScores');
+    const metaMinProb = document.getElementById('metaMinProb');
+    const galleryProgressWrap = document.getElementById('galleryProgressWrap');
+    const galleryProgressPanel = document.getElementById('galleryProgressPanel');
+    const galleryProgressText = document.getElementById('galleryProgressText');
+    const galleryProgressFill = document.getElementById('galleryProgressFill');
+    const galleryProgressModel = document.getElementById('galleryProgressModel');
+    const galleryProgressInputSize = document.getElementById('galleryProgressInputSize');
+    const galleryProgressItem = document.getElementById('galleryProgressItem');
+    const galleryProgressHint = document.getElementById('galleryProgressHint');
+    const runGalleryMetaBtn = document.getElementById('runGalleryMetaBtn');
     const textPrompt = document.getElementById('textPrompt');
     const promptModeSelect = document.getElementById('promptModeSelect');
     const confidence = document.getElementById('confidence');
@@ -555,6 +1088,16 @@
     const modeRemoveBtn = document.getElementById('modeRemove');
     const modeRectBtn = document.getElementById('modeRect');
     const modeCropBtn = document.getElementById('modeCrop');
+    const promptToolsCard = document.getElementById('promptToolsCard');
+    const startTourBtn = document.getElementById('startTourBtn');
+    const tourOverlay = document.getElementById('tourOverlay');
+    const tourHighlight = document.getElementById('tourHighlight');
+    const tourPop = document.getElementById('tourPop');
+    const tourTitle = document.getElementById('tourTitle');
+    const tourText = document.getElementById('tourText');
+    const tourStep = document.getElementById('tourStep');
+    const tourNextBtn = document.getElementById('tourNextBtn');
+    const tourExitBtn = document.getElementById('tourExitBtn');
 
     let currentImage = null;
     let currentImageId = null;
@@ -580,15 +1123,399 @@
     let wheelDragOffsetX = 0;
     let wheelDragOffsetY = 0;
     let lastSelectedExistingLabel = '';
+    let datasetItems = [];
+    let availableImageLabelFlags = [];
+    let activeGalleryItemId = null;
+    let modelMetaByName = {};
+    let galleryResizeActive = false;
+    let galleryChartMode = 'pie';
+    let galleryProgressDismissable = false;
+    let tourActive = false;
+    let tourIndex = 0;
+    let lastModelWasSam3 = false;
+    const tourSteps = [
+      { selector: '.brand', title: 'Welcome', text: 'This quick tour highlights the main workflow areas.' },
+      {
+        selector: '#modelSelect',
+        title: 'Model Selection',
+        text: 'Image Models (SAM2/SAM3) run image-wise interactive inference using points/boxes on the currently loaded image. Gallery Models (MetaCLIP2/BLIP2) run dataset-wide classification/tagging across filtered gallery images.'
+      },
+      { selector: '#datasetFolderInput', title: 'Dataset Folder', text: 'Load a folder with images and paired JSON files.' },
+      { selector: '#galleryFlagFilter', title: 'Gallery Filters', text: 'Filter gallery images by labels/flags and threshold.' },
+      { selector: '#runGalleryMetaBtn', title: 'Run Gallery', text: 'Run selected gallery model on currently filtered images only.' },
+      { selector: '#galleryBar', title: 'Gallery', text: 'Previews, scores, and click-to-load image sessions.' },
+      { selector: '#canvas', title: 'Image Workspace', text: 'Use points/rectangles for SAM prompts and annotation review.' },
+      { selector: '#promptToolsCard', title: 'Prompt Tools', text: 'Prompt actions for image models. Disabled for gallery models.' },
+      { selector: '#annoList', title: 'Annotations', text: 'Review, rename, and delete saved annotations.' },
+      { selector: '#cropCanvas', title: 'Crop Preview', text: 'Create crop regions, upscale, and run crop-aware inference.' },
+      { selector: '#status', title: 'Status', text: 'Read live operation status and completion messages here.' },
+    ];
     const labelColorPalette = [
       '#e31a1c', '#1f78b4', '#33a02c', '#ff7f00', '#6a3d9a',
       '#b15928', '#17becf', '#d62728', '#2ca02c', '#9467bd',
       '#8c564b', '#bcbd22', '#e7298a', '#66a61e', '#1b9e77',
       '#7570b3', '#e6ab02', '#a6761d', '#666666', '#00bcd4',
     ];
+    const chartPalette = ['#1f78b4', '#e31a1c', '#33a02c'];
 
     function setStatus(text) {
       statusEl.textContent = text;
+    }
+
+    function getTourTargetRect(selector) {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 || r.height <= 1) return null;
+      return r;
+    }
+
+    function placeTourForStep(idx) {
+      const step = tourSteps[idx];
+      const rect = getTourTargetRect(step.selector);
+      if (!rect) return false;
+      const pad = 6;
+      tourHighlight.style.left = `${Math.max(4, rect.left - pad)}px`;
+      tourHighlight.style.top = `${Math.max(4, rect.top - pad)}px`;
+      tourHighlight.style.width = `${Math.max(8, rect.width + pad * 2)}px`;
+      tourHighlight.style.height = `${Math.max(8, rect.height + pad * 2)}px`;
+
+      tourTitle.textContent = step.title;
+      tourText.textContent = step.text;
+      tourStep.textContent = `Step ${idx + 1} / ${tourSteps.length}`;
+      tourNextBtn.textContent = idx === tourSteps.length - 1 ? 'Finish' : 'Continue';
+
+      const popRect = tourPop.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = rect.left;
+      let top = rect.bottom + 10;
+      if (left + popRect.width > vw - 8) left = vw - popRect.width - 8;
+      if (left < 8) left = 8;
+      if (top + popRect.height > vh - 8) {
+        top = rect.top - popRect.height - 10;
+      }
+      if (top < 8) top = 8;
+      tourPop.style.left = `${left}px`;
+      tourPop.style.top = `${top}px`;
+      return true;
+    }
+
+    function showTourStep(idx) {
+      if (!tourActive) return;
+      let i = idx;
+      while (i < tourSteps.length) {
+        if (placeTourForStep(i)) {
+          tourIndex = i;
+          return;
+        }
+        i += 1;
+      }
+      endTour();
+    }
+
+    function startTour() {
+      tourActive = true;
+      tourOverlay.classList.add('open');
+      showTourStep(0);
+    }
+
+    function endTour() {
+      tourActive = false;
+      tourOverlay.classList.remove('open');
+    }
+
+    function setGalleryProgress(done, total, message = '') {
+      const safeTotal = Math.max(0, Number(total) || 0);
+      const safeDone = Math.max(0, Number(done) || 0);
+      const pct = safeTotal > 0 ? Math.min(100, (safeDone / safeTotal) * 100) : 0;
+      galleryProgressFill.style.width = `${pct.toFixed(1)}%`;
+      galleryProgressText.textContent = `${safeDone} / ${safeTotal}${message ? ` - ${message}` : ''}`;
+    }
+
+    function setGalleryProgressDetails(modelName, itemName, inputSize) {
+      galleryProgressModel.textContent = modelName || '-';
+      galleryProgressItem.textContent = itemName || '-';
+      if (inputSize && Number.isFinite(Number(inputSize.width)) && Number.isFinite(Number(inputSize.height))) {
+        galleryProgressInputSize.textContent = `${Number(inputSize.width)}x${Number(inputSize.height)}`;
+      } else {
+        galleryProgressInputSize.textContent = '-';
+      }
+    }
+
+    function setGalleryProgressDismissable(enabled) {
+      galleryProgressDismissable = !!enabled;
+      galleryProgressPanel.classList.toggle('dismissable', galleryProgressDismissable);
+      galleryProgressHint.textContent = galleryProgressDismissable
+        ? 'Click this panel to close'
+        : '';
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function firstWord(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      const parts = text.split(/\s+/);
+      return (parts[0] || '').trim();
+    }
+
+    function renderGalleryFlagFilterOptions() {
+      const current = galleryFlagFilter.value || '';
+      galleryFlagFilter.innerHTML = '';
+      const allOpt = document.createElement('option');
+      allOpt.value = '';
+      allOpt.textContent = 'All';
+      galleryFlagFilter.appendChild(allOpt);
+      for (const item of availableImageLabelFlags) {
+        const flag = item.label;
+        const opt = document.createElement('option');
+        opt.value = flag;
+        opt.textContent = `${flag} (${item.count})`;
+        galleryFlagFilter.appendChild(opt);
+      }
+      if (current && availableImageLabelFlags.some((v) => v.label === current)) {
+        galleryFlagFilter.value = current;
+      } else {
+        galleryFlagFilter.value = '';
+      }
+    }
+
+    function refreshAvailableFlagsFromDatasetItems() {
+      const counts = new Map();
+      const src = (galleryLabelSource.value || 'auto').toLowerCase();
+      const firstOnly = !!galleryFirstWordOnly.checked;
+      for (const item of datasetItems) {
+        const labels = getItemLabelsForSource(item, src);
+        const seen = new Set();
+        for (const v of labels) {
+          if (typeof v !== 'string' || !v.trim()) continue;
+          const label = firstOnly ? firstWord(v) : v.trim();
+          if (!label || seen.has(label)) continue;
+          seen.add(label);
+          counts.set(label, (counts.get(label) || 0) + 1);
+        }
+      }
+      availableImageLabelFlags = Array.from(counts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => {
+          if (gallerySortAlpha.checked) {
+            return a.label.localeCompare(b.label);
+          }
+          return (b.count - a.count) || a.label.localeCompare(b.label);
+        });
+      renderGalleryFlagFilterOptions();
+    }
+
+    function getScoresForSource(item, source) {
+      const src = (source || 'auto').toLowerCase();
+      if (src === 'metaclip2') {
+        return Array.isArray(item.metaclip2_scores) ? item.metaclip2_scores : [];
+      }
+      if (src === 'blip2') {
+        return Array.isArray(item.blip2_scores) ? item.blip2_scores : [];
+      }
+      return Array.isArray(item.classification_scores) ? item.classification_scores : [];
+    }
+
+    function getItemLabelsForSource(item, source) {
+      const src = (source || 'auto').toLowerCase();
+      const scores = getScoresForSource(item, src);
+      if (src === 'auto' && (!Array.isArray(scores) || !scores.length)) {
+        // Fallback only when no classifier output is available.
+        return Array.isArray(item.image_label_flags) ? item.image_label_flags : [];
+      }
+      return scores.map((s) => String(s?.label || '').trim()).filter(Boolean);
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function polarToCartesian(cx, cy, r, angleRad) {
+      return {
+        x: cx + r * Math.cos(angleRad),
+        y: cy + r * Math.sin(angleRad),
+      };
+    }
+
+    function buildPiePath(cx, cy, r, startAngle, endAngle) {
+      const start = polarToCartesian(cx, cy, r, startAngle);
+      const end = polarToCartesian(cx, cy, r, endAngle);
+      const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+      return [
+        `M ${cx} ${cy}`,
+        `L ${start.x.toFixed(2)} ${start.y.toFixed(2)}`,
+        `A ${r} ${r} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`,
+        'Z',
+      ].join(' ');
+    }
+
+    function buildGalleryChartSvg(entries, mode) {
+      const values = entries.map((e) => Number(e?.value) || 0);
+      const sum = values.reduce((a, b) => a + b, 0);
+      if (!entries.length || sum <= 0) {
+        return '<svg class="gallery-chart" viewBox="0 0 120 78" role="img" aria-label="No statistics"><text x="60" y="42" text-anchor="middle" font-size="10" fill="#cfe3f3">No stats</text></svg>';
+      }
+      if (mode === 'bar') {
+        const w = 120;
+        const h = 78;
+        const baseY = 68;
+        const chartH = 52;
+        const barW = 26;
+        const gap = 10;
+        const startX = 12;
+        const bars = entries.map((entry, i) => {
+          const raw = Math.max(0, Number(entry?.value) || 0);
+          const normalized = raw / sum;
+          const bh = Math.max(2, normalized * chartH);
+          const x = startX + i * (barW + gap);
+          const y = baseY - bh;
+          const color = chartPalette[i % chartPalette.length];
+          const label = escapeHtml(entry?.label || '');
+          const title = `${label}: ${raw.toFixed(0)} (${(normalized * 100).toFixed(1)}%)`;
+          return `<g><title>${title}</title><rect x="${x}" y="${y.toFixed(2)}" width="${barW}" height="${bh.toFixed(2)}" rx="4" fill="${color}" /><text x="${x + barW / 2}" y="76" text-anchor="middle" font-size="7" fill="#d9ecf8">${i + 1}</text></g>`;
+        }).join('');
+        return `<svg class="gallery-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Top label probabilities bar chart">${bars}</svg>`;
+      }
+      const cx = 60;
+      const cy = 39;
+      const r = 30;
+      let angle = -Math.PI / 2;
+      const slices = entries.map((entry, i) => {
+        const raw = Math.max(0, Number(entry?.value) || 0);
+        const frac = raw / sum;
+        const next = angle + frac * Math.PI * 2;
+        const color = chartPalette[i % chartPalette.length];
+        const path = buildPiePath(cx, cy, r, angle, next);
+        const label = escapeHtml(entry?.label || '');
+        const title = `${label}: ${raw.toFixed(0)} (${(frac * 100).toFixed(1)}%)`;
+        angle = next;
+        return `<path d="${path}" fill="${color}"><title>${title}</title></path>`;
+      }).join('');
+      return `<svg class="gallery-chart" viewBox="0 0 120 78" role="img" aria-label="Top label probabilities pie chart">${slices}</svg>`;
+    }
+
+    function getGalleryFilterContext() {
+      const filterValue = (galleryFlagFilter.value || '').trim();
+      const rawThreshold = Number(galleryFlagThreshold.value);
+      const threshold = Number.isFinite(rawThreshold)
+        ? Math.min(1, Math.max(0, rawThreshold))
+        : 0;
+      return { filterValue, threshold };
+    }
+
+    function syncGalleryThresholdLabel() {
+      const v = Number(galleryFlagThreshold.value);
+      galleryFlagThresholdValue.textContent = Number.isFinite(v) ? v.toFixed(2) : '0.00';
+    }
+
+    function getFilteredDatasetItems() {
+      const { filterValue, threshold } = getGalleryFilterContext();
+      const src = (galleryLabelSource.value || 'auto').toLowerCase();
+      const firstOnly = !!galleryFirstWordOnly.checked;
+      if (filterValue) {
+        return datasetItems.filter((item) => {
+          const scoreEntries = getScoresForSource(item, src);
+          const hasFlag = scoreEntries.some((s) => {
+            const lbl = String(s?.label || '').trim();
+            if (!lbl) return false;
+            return firstOnly ? firstWord(lbl) === filterValue : lbl === filterValue;
+          });
+          // Auto mode fallback to image flags only when classifier scores are unavailable.
+          const fallbackFlags = (src === 'auto' && !scoreEntries.length)
+            ? getItemLabelsForSource(item, src)
+            : [];
+          const fallbackHasFlag = fallbackFlags.some((lbl) => {
+            const v = String(lbl || '').trim();
+            if (!v) return false;
+            return firstOnly ? firstWord(v) === filterValue : v === filterValue;
+          });
+          const matched = hasFlag || fallbackHasFlag;
+          if (!matched) return false;
+          if (threshold <= 0) return true;
+          if (!hasFlag) return false;
+          let matchedScore = Number.NaN;
+          for (const s of scoreEntries) {
+            const lbl = String(s?.label || '').trim();
+            if (!lbl) continue;
+            const ok = firstOnly ? firstWord(lbl) === filterValue : lbl === filterValue;
+            if (!ok) continue;
+            const sc = Number(s?.score);
+            if (!Number.isFinite(sc)) continue;
+            if (!Number.isFinite(matchedScore) || sc > matchedScore) {
+              matchedScore = sc;
+            }
+          }
+          return Number.isFinite(matchedScore) && matchedScore >= threshold;
+        });
+      }
+      return datasetItems.filter((item) => {
+        if (threshold <= 0) return true;
+        const topScore = Number((getScoresForSource(item, src)[0] || {}).score);
+        return Number.isFinite(topScore) && topScore >= threshold;
+      });
+    }
+
+    function renderGalleryStats(filteredItems) {
+      const counts = new Map();
+      let usedImages = 0;
+      for (const item of filteredItems) {
+        const scoreEntriesAll = getScoresForSource(item, galleryLabelSource.value);
+        const top3 = scoreEntriesAll.slice(0, 3);
+        if (!top3.length) continue;
+        usedImages += 1;
+        for (const entry of top3) {
+          const label = String(entry?.label || '').trim();
+          if (!label) continue;
+          counts.set(label, (counts.get(label) || 0) + 1);
+        }
+      }
+      const entries = Array.from(counts.entries())
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 3);
+      const mode = galleryChartMode === 'bar' ? 'bar' : 'pie';
+      galleryStatsChart.innerHTML = buildGalleryChartSvg(entries, mode);
+      galleryStatsLegend.innerHTML = '';
+      const totalVotes = entries.reduce((acc, e) => acc + e.value, 0);
+      galleryStatsMeta.textContent = `${usedImages} image(s) contributed, ${totalVotes} top-3 votes`;
+      if (!entries.length) {
+        const row = document.createElement('div');
+        row.className = 'gallery-stats-row';
+        row.innerHTML = '<span class="gallery-stats-dot" style="background:#c6d6e5"></span><span>No labels above threshold</span><span>—</span>';
+        galleryStatsLegend.appendChild(row);
+        return;
+      }
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const pct = totalVotes > 0 ? (e.value / totalVotes) * 100 : 0;
+        const row = document.createElement('div');
+        row.className = 'gallery-stats-row';
+        row.innerHTML = `
+          <span class="gallery-stats-dot" style="background:${chartPalette[i % chartPalette.length]}"></span>
+          <span>${escapeHtml(e.label)}</span>
+          <span>${e.value} (${pct.toFixed(1)}%)</span>
+        `;
+        galleryStatsLegend.appendChild(row);
+      }
+    }
+
+    function setGalleryHeight(px, persist = true) {
+      const minH = 120;
+      const maxH = Math.min(window.innerHeight * 0.65, 720);
+      const h = Math.max(minH, Math.min(maxH, Math.round(px)));
+      document.documentElement.style.setProperty('--gallery-height', `${h}px`);
+      if (persist) {
+        localStorage.setItem('anylabeling.galleryHeight', String(h));
+      }
     }
 
     function syncModeButtons() {
@@ -596,6 +1523,58 @@
       modeRemoveBtn.classList.toggle('tool-active', mode === 'point-remove');
       modeRectBtn.classList.toggle('tool-active', mode === 'rect');
       modeCropBtn.classList.toggle('tool-active', mode === 'crop-select');
+    }
+
+    function currentModelMeta() {
+      return modelMetaByName[modelSelect.value] || {};
+    }
+
+    function isClassifierSelected() {
+      const t = (currentModelMeta().type || '').toLowerCase();
+      return t === 'metaclip2' || t === 'blip2';
+    }
+
+    function isBlip2Selected() {
+      return (currentModelMeta().type || '').toLowerCase() === 'blip2';
+    }
+
+    function isSamSelected() {
+      return (currentModelMeta().type || '').toLowerCase() === 'segment_anything';
+    }
+
+    function clearMetaClipScores() {
+      metaclipScores.innerHTML = '';
+      metaclipScores.style.display = 'none';
+      metaclipScoresLabel.style.display = 'none';
+    }
+
+    function syncConfidenceLabel() {
+      if (confidenceValue) {
+        confidenceValue.textContent = Number(confidence.value).toFixed(2);
+      }
+    }
+
+    function renderMetaClipScores(scores) {
+      const list = Array.isArray(scores) ? scores : [];
+      if (!list.length) {
+        clearMetaClipScores();
+        return;
+      }
+      metaclipScores.innerHTML = '';
+      for (const item of list) {
+        const row = document.createElement('div');
+        row.className = 'anno-item';
+        const label = document.createElement('div');
+        label.textContent = String(item.label || '');
+        const value = document.createElement('div');
+        value.style.fontWeight = '700';
+        value.textContent = `${(Number(item.score || 0) * 100).toFixed(2)}%`;
+        row.appendChild(label);
+        row.appendChild(value);
+        metaclipScores.appendChild(row);
+      }
+      metaclipScores.style.display = 'block';
+      metaclipScoresLabel.style.display = 'block';
     }
 
     function setHoverInfo(text) {
@@ -876,34 +1855,115 @@
       const res = await fetch('/api/models');
       const data = await res.json();
       modelSelect.innerHTML = '';
+      modelMetaByName = {};
+      const groups = {
+        image: document.createElement('optgroup'),
+        gallery: document.createElement('optgroup'),
+        other: document.createElement('optgroup'),
+      };
+      groups.image.label = 'Image Models';
+      groups.gallery.label = 'Gallery Models';
+      groups.other.label = 'Other Models';
       for (const m of data.models) {
+        modelMetaByName[m.name] = m;
         const opt = document.createElement('option');
         opt.value = m.name;
         opt.textContent = `${m.display_name} (${m.has_downloaded ? 'local' : 'download'})`;
-        modelSelect.appendChild(opt);
+        const t = (m.type || '').toLowerCase();
+        if (t === 'metaclip2' || t === 'blip2') {
+          groups.gallery.appendChild(opt);
+        } else if (t === 'segment_anything') {
+          groups.image.appendChild(opt);
+        } else {
+          groups.other.appendChild(opt);
+        }
       }
+      if (groups.gallery.children.length) modelSelect.appendChild(groups.gallery);
+      if (groups.image.children.length) modelSelect.appendChild(groups.image);
+      if (groups.other.children.length) modelSelect.appendChild(groups.other);
       syncPromptModeAvailability();
     }
 
     function isSam3Selected() {
-      return (modelSelect.value || '').toLowerCase().includes('sam3');
+      return !!currentModelMeta().is_sam3;
     }
 
     function syncPromptModeAvailability() {
+      const classifier = isClassifierSelected();
+      const blip2 = isBlip2Selected();
       const sam3 = isSam3Selected();
-      promptModeSelect.disabled = !sam3;
+      const sam = isSamSelected();
+      const enteredSam3 = sam3 && !lastModelWasSam3;
+      promptModeSelect.disabled = classifier || !sam3;
+      confidence.disabled = classifier;
+      promptModeLabel.style.display = classifier ? 'none' : 'block';
+      promptModeSelect.style.display = classifier ? 'none' : 'block';
+      confidenceGroup.style.display = sam ? 'block' : 'none';
+      confidenceLabel.style.display = sam ? 'block' : 'none';
+      confidence.style.display = sam ? 'block' : 'none';
+      classifierMinProbGroup.style.display = classifier ? 'block' : 'none';
+      metaMinProb.disabled = !classifier;
+      textPromptLabel.style.display = blip2 ? 'none' : 'block';
+      textPrompt.style.display = blip2 ? 'none' : 'block';
+      textPrompt.disabled = (!sam3 && !classifier);
+      textPromptLabel.textContent = classifier
+        ? 'Classifier Labels (comma-separated)'
+        : 'SAM3 Text Prompt';
+      if (!classifier) {
+        clearMetaClipScores();
+      }
       if (!sam3) {
         promptModeSelect.value = 'visual';
       }
+      if (enteredSam3) {
+        mode = 'rect';
+        syncModeButtons();
+      }
+      lastModelWasSam3 = sam3;
+      syncPromptToolsAvailability();
+      syncGalleryRunAvailability();
+    }
+
+    function syncPromptToolsAvailability() {
+      const disabled = isClassifierSelected();
+      promptToolsCard.classList.toggle('disabled', disabled);
+      const ids = [
+        'modeAdd',
+        'modeRemove',
+        'modeRect',
+        'modeCrop',
+        'inferTextBtn',
+        'clearPromptsBtn',
+        'clearMasksBtn',
+      ];
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) el.disabled = disabled;
+      }
+    }
+
+    function syncGalleryRunAvailability() {
+      const isGalleryModel = isClassifierSelected();
+      runGalleryMetaBtn.disabled = !isGalleryModel;
+      runGalleryMetaBtn.title = isGalleryModel
+        ? 'Run selected gallery model on filtered images'
+        : 'Available only for Gallery Models (MetaCLIP2/BLIP2)';
     }
 
     function buildInferencePayload(imageId, inputMarks) {
+      const metaclip = isClassifierSelected();
+      const blip2 = isBlip2Selected();
       const mode = promptModeSelect.value;
       const sam3 = isSam3Selected();
       let marks = inputMarks || [];
       let text = textPrompt.value;
 
-      if (sam3) {
+      if (metaclip) {
+        marks = [];
+        if (blip2) {
+          text = '';
+        }
+      } else if (sam3) {
         if (mode === 'text') {
           marks = [];
         } else if (mode === 'visual') {
@@ -1370,6 +2430,185 @@
       }
     }
 
+    function renderGallery() {
+      galleryBar.innerHTML = '';
+      const filteredItems = getFilteredDatasetItems();
+      renderGalleryStats(filteredItems);
+      if (!filteredItems.length) {
+        const empty = document.createElement('div');
+        empty.className = 'gallery-empty';
+        empty.textContent = datasetItems.length
+          ? 'No images match current flag filter.'
+          : 'No dataset loaded yet.';
+        galleryBar.appendChild(empty);
+        return;
+      }
+      for (const item of filteredItems) {
+        const btn = document.createElement('button');
+        btn.className = 'gallery-item' + (item.item_id === activeGalleryItemId ? ' active' : '');
+        btn.type = 'button';
+        btn.title = item.name;
+        const safeName = escapeHtml(item.name || '');
+        const annCount = Number(item.annotation_count || 0);
+        const srcScores = getScoresForSource(item, galleryLabelSource.value);
+        const topEntry = srcScores.length ? srcScores[0] : null;
+        const clsLabel = String(topEntry?.label || '').trim();
+        const clsScoreNum = Number(topEntry?.score);
+        const clsScore = Number.isFinite(clsScoreNum) ? clsScoreNum.toFixed(3) : '';
+        const scoreEntriesAll = srcScores;
+        const scoreEntriesTop3 = scoreEntriesAll.slice(0, 3);
+        const hasMoreLabels = scoreEntriesAll.length > 1;
+        const clsText = clsLabel
+          ? `${clsLabel} (${clsScore})${hasMoreLabels ? ' ...' : ''}`
+          : 'No class result';
+        const overlayRows = scoreEntriesTop3.length
+          ? scoreEntriesTop3
+              .map((entry) => {
+                const label = escapeHtml(entry?.label || '');
+                const score = Number(entry?.score);
+                const scoreText = Number.isFinite(score) ? score.toFixed(3) : '0.000';
+                return `<div class="gallery-score-row"><span class="gallery-score-label">${label}</span><span class="gallery-score-value">${scoreText}</span></div>`;
+              })
+              .join('')
+          : '<div class="gallery-score-row"><span class="gallery-score-label">No class probabilities</span><span class="gallery-score-value">—</span></div>';
+        const popRows = scoreEntriesAll.length
+          ? scoreEntriesAll
+              .map((entry) => {
+                const label = escapeHtml(entry?.label || '');
+                const score = Number(entry?.score);
+                const scoreText = Number.isFinite(score) ? score.toFixed(3) : '0.000';
+                return `<div class="gallery-classify-pop-row"><span>${label}</span><span>${scoreText}</span></div>`;
+              })
+              .join('')
+          : '<div class="gallery-classify-pop-row"><span>No class probabilities</span><span>—</span></div>';
+        btn.innerHTML = `
+          <div class="gallery-thumb-wrap">
+            <img class="gallery-thumb" src="${item.preview_url}" alt="${safeName}" loading="lazy" />
+            <div class="gallery-score-overlay">${overlayRows}</div>
+          </div>
+          <div class="gallery-meta">
+            <span class="gallery-name">${safeName}</span>
+            <span class="gallery-count">${annCount} anno${annCount === 1 ? '' : 's'}</span>
+            <span class="gallery-count">Flags: ${getItemLabelsForSource(item, galleryLabelSource.value).length}</span>
+            <div class="gallery-classify-wrap">
+              <span class="gallery-classify ${clsLabel ? '' : 'empty'}">${clsText}</span>
+              <div class="gallery-classify-pop">${popRows}</div>
+            </div>
+          </div>
+        `;
+        btn.onclick = () => selectGalleryItem(item.item_id);
+        galleryBar.appendChild(btn);
+      }
+    }
+
+    galleryResizeHandle.addEventListener('mousedown', (e) => {
+      galleryResizeActive = true;
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!galleryResizeActive) return;
+      const rect = galleryBar.getBoundingClientRect();
+      const nextHeight = e.clientY - rect.top;
+      setGalleryHeight(nextHeight);
+    });
+
+    window.addEventListener('mouseup', () => {
+      galleryResizeActive = false;
+    });
+
+    function applyLoadedImageSession(info, imageSrc, options = {}) {
+      currentImageId = info.image_id;
+      const img = new Image();
+      img.onload = () => {
+        currentImage = img;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        marks = [];
+        cropMarks = [];
+        rectStart = null;
+        rectPreview = null;
+        pendingPolygons = [];
+        cropPendingPolygons = [];
+        cropRect = null;
+        cropSourceCanvas = null;
+        nextAnnotationId = 1;
+        const loadedAnn = Array.isArray(info.annotations) ? info.annotations : [];
+        annotations = loadedAnn.map((ann) => ({
+          id: nextAnnotationId++,
+          name: (ann?.name || 'AUTOLABEL_OBJECT'),
+          points: Array.isArray(ann?.points) ? ann.points : [],
+        }));
+        selectedAnnotationId = annotations.length ? annotations[annotations.length - 1].id : null;
+        hoveredAnnotationId = null;
+        setHoverInfo('');
+        showCursorLabel('', 0, 0);
+        renderCropPreview();
+        renderAnnotations();
+        syncAnnoListHoverState();
+        redraw();
+        const loadedCount = Number(info.loaded_annotation_count || 0);
+        if (loadedCount > 0) {
+          setStatus(`Image loaded (${img.width}x${img.height}). Loaded ${loadedCount} annotation(s) from paired JSON.`);
+        } else {
+          setStatus(`Image loaded (${img.width}x${img.height}).`);
+        }
+        triggerAutosave('image_uploaded');
+        if (options.revokeObjectUrl) {
+          URL.revokeObjectURL(imageSrc);
+        }
+      };
+      img.src = imageSrc;
+    }
+
+    async function selectGalleryItem(itemId) {
+      const res = await fetch('/api/dataset/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: itemId }),
+      });
+      if (!res.ok) {
+        setStatus(`Failed to load gallery item: ${await res.text()}`);
+        return;
+      }
+      const info = await res.json();
+      activeGalleryItemId = itemId;
+      renderGallery();
+      const src = `/api/dataset/image/${encodeURIComponent(itemId)}?t=${Date.now()}`;
+      applyLoadedImageSession(info, src);
+    }
+
+    async function loadDatasetFolder() {
+      const folderPath = (datasetFolderInput.value || '').trim();
+      if (!folderPath) {
+        setStatus('Enter a dataset folder path first.');
+        return;
+      }
+      setStatus('Loading dataset folder...');
+      const res = await fetch('/api/dataset/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder_path: folderPath,
+          recursive: !!datasetRecursive.checked,
+          copy_into_workdir: !!datasetCopyIntoWorkdir.checked,
+        }),
+      });
+      if (!res.ok) {
+        setStatus(`Failed to load folder: ${await res.text()}`);
+        return;
+      }
+      const data = await res.json();
+      datasetItems = Array.isArray(data.items) ? data.items : [];
+      refreshAvailableFlagsFromDatasetItems();
+      activeGalleryItemId = datasetItems.length ? datasetItems[0].item_id : null;
+      renderGallery();
+      setStatus(`Loaded ${datasetItems.length} image(s) from folder.`);
+      if (activeGalleryItemId) {
+        await selectGalleryItem(activeGalleryItemId);
+      }
+    }
+
     imageInput.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -1382,51 +2621,21 @@
         return;
       }
       const info = await uploadRes.json();
-      currentImageId = info.image_id;
-
       const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        currentImage = img;
-        canvas.width = img.width;
-        canvas.height = img.height;
-        marks = [];
-        cropMarks = [];
-        nextAnnotationId = 1;
-        const loadedAnn = Array.isArray(info.annotations) ? info.annotations : [];
-        annotations = loadedAnn.map((ann) => ({
-          id: nextAnnotationId++,
-          name: (ann?.name || 'AUTOLABEL_OBJECT'),
-          points: Array.isArray(ann?.points) ? ann.points : [],
-        }));
-        pendingPolygons = [];
-        cropPendingPolygons = [];
-        cropRect = null;
-        cropSourceCanvas = null;
-        selectedAnnotationId = annotations.length ? annotations[annotations.length - 1].id : null;
-        hoveredAnnotationId = null;
-        setHoverInfo('');
-        showCursorLabel('', 0, 0);
-        renderCropPreview();
-        renderAnnotations();
-        syncAnnoListHoverState();
-        redraw();
-        const loadedCount = Number(info.loaded_annotation_count || 0);
-        if (loadedCount > 0) {
-          setStatus(`Image uploaded (${img.width}x${img.height}). Loaded ${loadedCount} annotation(s) from sidecar JSON.`);
-        } else {
-          setStatus(`Image uploaded (${img.width}x${img.height})`);
-        }
-        triggerAutosave('image_uploaded');
-        URL.revokeObjectURL(url);
-      };
-      img.src = url;
+      datasetItems = [];
+      availableImageLabelFlags = [];
+      renderGalleryFlagFilterOptions();
+      activeGalleryItemId = null;
+      clearMetaClipScores();
+      renderGallery();
+      applyLoadedImageSession(info, url, { revokeObjectUrl: true });
     });
 
     canvas.addEventListener('click', (e) => {
       updatePointerFromEvent(e);
       if (!currentImage || mode === 'rect') return;
       if (mode === 'crop-select') return;
+      if (isClassifierSelected()) return;
       const rect = canvas.getBoundingClientRect();
       const x = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
       const y = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
@@ -1485,6 +2694,12 @@
 
     canvas.addEventListener('mouseup', (e) => {
       if (!currentImage || (mode !== 'rect' && mode !== 'crop-select') || !rectStart) return;
+      if (isClassifierSelected()) {
+        rectStart = null;
+        rectPreview = null;
+        redraw();
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       const x2 = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
       const y2 = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
@@ -1561,6 +2776,147 @@
     };
 
     document.getElementById('loadModelBtn').onclick = loadModel;
+    document.getElementById('runGalleryMetaBtn').onclick = async () => {
+      const runBtn = document.getElementById('runGalleryMetaBtn');
+      if (!datasetItems.length) {
+        setStatus('Load a dataset folder first.');
+        return;
+      }
+      const filteredItems = getFilteredDatasetItems();
+      if (!filteredItems.length) {
+        setStatus('No filtered gallery images to run. Adjust gallery filter/threshold.');
+        return;
+      }
+      if (!isClassifierSelected()) {
+        setStatus('Run Whole Gallery is available for classifier models (MetaCLIP2/BLIP2) only.');
+        return;
+      }
+      const labelsText = isBlip2Selected() ? '' : (textPrompt.value || '').trim();
+      if (!isBlip2Selected() && !labelsText) {
+        setStatus('Enter classifier labels first (comma-separated).');
+        return;
+      }
+      const minProbability = Number(metaMinProb.value);
+      if (!Number.isFinite(minProbability) || minProbability < 0 || minProbability > 1) {
+        setStatus('Classifier min probability must be in [0, 1].');
+        return;
+      }
+      runBtn.disabled = true;
+      galleryProgressWrap.classList.add('open');
+      setGalleryProgressDismissable(false);
+      setGalleryProgress(0, filteredItems.length, 'Starting...');
+      setGalleryProgressDetails(modelSelect.value, '-', null);
+      setStatus(`Running classifier over filtered gallery (${filteredItems.length} image(s))...`);
+      try {
+        const startRes = await fetch('/api/dataset/infer_classifier/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model_name: modelSelect.value,
+            labels_text: labelsText,
+            min_probability: minProbability,
+            item_ids: filteredItems.map((it) => it.item_id),
+          }),
+        });
+        if (!startRes.ok) {
+          setStatus(`Gallery infer failed: ${await startRes.text()}`);
+          return;
+        }
+        const start = await startRes.json();
+        const jobId = start.job_id;
+        if (!jobId) {
+          setStatus('Gallery infer failed: no job id returned.');
+          return;
+        }
+
+        while (true) {
+          await sleep(180);
+          const pollRes = await fetch(`/api/dataset/infer_classifier/progress/${encodeURIComponent(jobId)}`);
+          if (!pollRes.ok) {
+            setStatus(`Gallery infer progress failed: ${await pollRes.text()}`);
+            break;
+          }
+          const prog = await pollRes.json();
+          setGalleryProgress(prog.done, prog.total, prog.message || '');
+          setGalleryProgressDetails(prog.model_name || modelSelect.value, prog.current_item_name, prog.current_input_size);
+          if (prog.status === 'done') {
+            datasetItems = Array.isArray(prog.items) ? prog.items : datasetItems;
+            refreshAvailableFlagsFromDatasetItems();
+            renderGallery();
+            setStatus(
+              `Gallery infer done: ${Number(prog.updated_count || 0)} image(s) updated. Results stored in LabelMe flags.`
+            );
+            setGalleryProgressDismissable(true);
+            break;
+          }
+          if (prog.status === 'error') {
+            setStatus(`Gallery infer failed: ${prog.error || 'unknown error'}`);
+            setGalleryProgressDismissable(true);
+            break;
+          }
+        }
+      } finally {
+        runBtn.disabled = false;
+      }
+    };
+    galleryProgressWrap.addEventListener('click', () => {
+      if (!galleryProgressDismissable) return;
+      galleryProgressWrap.classList.remove('open');
+      setGalleryProgressDismissable(false);
+    });
+    loadDatasetBtn.onclick = loadDatasetFolder;
+    galleryFlagFilter.addEventListener('change', () => {
+      renderGallery();
+      const v = (galleryFlagFilter.value || '').trim();
+      const t = Number(galleryFlagThreshold.value);
+      if (v) {
+        setStatus(`Gallery filtered by flag: ${v}${Number.isFinite(t) && t > 0 ? ` (threshold >= ${t.toFixed(2)})` : ''}`);
+      } else {
+        setStatus(`Gallery filter cleared${Number.isFinite(t) && t > 0 ? ` (top score threshold >= ${t.toFixed(2)})` : ''}.`);
+      }
+    });
+    galleryLabelSource.addEventListener('change', () => {
+      refreshAvailableFlagsFromDatasetItems();
+      renderGallery();
+      setStatus(`Gallery label source: ${galleryLabelSource.value}`);
+    });
+    galleryFirstWordOnly.addEventListener('change', () => {
+      refreshAvailableFlagsFromDatasetItems();
+      renderGallery();
+      setStatus(`Gallery filter mode: ${galleryFirstWordOnly.checked ? 'first word only' : 'full label'}`);
+    });
+    gallerySortAlpha.addEventListener('change', () => {
+      refreshAvailableFlagsFromDatasetItems();
+      renderGallery();
+      setStatus(`Gallery filter sort: ${gallerySortAlpha.checked ? 'alphabetical' : 'count desc'}`);
+    });
+    galleryFlagThreshold.addEventListener('input', () => {
+      syncGalleryThresholdLabel();
+      renderGallery();
+    });
+    galleryStatsChart.addEventListener('click', () => {
+      galleryChartMode = galleryChartMode === 'pie' ? 'bar' : 'pie';
+      renderGallery();
+      setStatus(`Gallery chart mode: ${galleryChartMode}`);
+    });
+    startTourBtn.addEventListener('click', () => {
+      startTour();
+    });
+    tourNextBtn.addEventListener('click', () => {
+      if (!tourActive) return;
+      if (tourIndex >= tourSteps.length - 1) {
+        endTour();
+      } else {
+        showTourStep(tourIndex + 1);
+      }
+    });
+    tourExitBtn.addEventListener('click', () => {
+      endTour();
+    });
+    window.addEventListener('resize', () => {
+      if (!tourActive) return;
+      showTourStep(tourIndex);
+    });
     document.getElementById('setWorkdirBtn').onclick = applyWorkdir;
     document.getElementById('applyVramBtn').onclick = async () => {
       setStatus('Applying VRAM options...');
@@ -1636,6 +2992,16 @@
           return;
         }
         const out = await res.json();
+        if (out.top_label) {
+          renderMetaClipScores(out.scores || []);
+          if (isBlip2Selected()) {
+            setStatus(`BLIP2 caption: ${out.top_label}`);
+          } else {
+            setStatus(`Classifier top label: ${out.top_label} (${Number(out.top_score || 0).toFixed(3)})`);
+          }
+          return;
+        }
+        clearMetaClipScores();
         const polys = out.polygons || [];
         if (!polys.length) {
           setStatus('Done. No masks found.');
@@ -1764,6 +3130,7 @@
     cropCanvas.addEventListener('click', (e) => {
       updatePointerFromEvent(e);
       if (!cropSourceCanvas || mode === 'crop-select') return;
+      if (isClassifierSelected()) return;
       const rect = cropCanvas.getBoundingClientRect();
       const x = Math.round((e.clientX - rect.left) * (cropCanvas.width / rect.width) / cropScale);
       const y = Math.round((e.clientY - rect.top) * (cropCanvas.height / rect.height) / cropScale);
@@ -1779,6 +3146,7 @@
     cropCanvas.addEventListener('mousedown', (e) => {
       updatePointerFromEvent(e);
       if (!cropSourceCanvas || mode !== 'rect') return;
+      if (isClassifierSelected()) return;
       const rect = cropCanvas.getBoundingClientRect();
       const x = Math.round((e.clientX - rect.left) * (cropCanvas.width / rect.width) / cropScale);
       const y = Math.round((e.clientY - rect.top) * (cropCanvas.height / rect.height) / cropScale);
@@ -1787,6 +3155,10 @@
     cropCanvas.addEventListener('mouseup', (e) => {
       updatePointerFromEvent(e);
       if (!cropSourceCanvas || mode !== 'rect' || !cropRectStart) return;
+      if (isClassifierSelected()) {
+        cropRectStart = null;
+        return;
+      }
       const rect = cropCanvas.getBoundingClientRect();
       const x2 = Math.round((e.clientX - rect.left) * (cropCanvas.width / rect.width) / cropScale);
       const y2 = Math.round((e.clientY - rect.top) * (cropCanvas.height / rect.height) / cropScale);
@@ -1854,6 +3226,16 @@
           return;
         }
         let out = await res.json();
+        if (out.top_label) {
+          renderMetaClipScores(out.scores || []);
+          if (isBlip2Selected()) {
+            setStatus(`BLIP2 caption: ${out.top_label}`);
+          } else {
+            setStatus(`Classifier top label: ${out.top_label} (${Number(out.top_score || 0).toFixed(3)})`);
+          }
+          return;
+        }
+        clearMetaClipScores();
         let cropPolys = out.polygons || [];
 
       // SAM3 crop fallback: if prompt+marks produced nothing, retry text-only
@@ -1917,11 +3299,22 @@
     };
 
     Promise.all([fetchModels(), syncRuntimeOptions(), syncWorkdir()]).then(() => {
+      syncGalleryThresholdLabel();
+      syncConfidenceLabel();
+      const savedGalleryHeight = Number(localStorage.getItem('anylabeling.galleryHeight'));
+      if (Number.isFinite(savedGalleryHeight) && savedGalleryHeight > 0) {
+        setGalleryHeight(savedGalleryHeight, false);
+      } else {
+        setGalleryHeight(200, false);
+      }
       syncModeButtons();
+      clearMetaClipScores();
       renderAnnotations();
+      renderGallery();
       setStatus('Ready');
     });
     modelSelect.addEventListener('change', syncPromptModeAvailability);
+    confidence.addEventListener('input', syncConfidenceLabel);
   </script>
 </body>
 </html>
