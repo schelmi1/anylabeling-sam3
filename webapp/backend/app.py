@@ -8,6 +8,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 import tempfile
 import threading
 import urllib.request
@@ -20,6 +21,7 @@ from typing import Any, Literal
 import cv2
 import numpy as np
 import yaml
+import onnxruntime
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -328,6 +330,10 @@ class DatasetLoadRequest(BaseModel):
     copy_into_workdir: bool = False
 
 
+class FolderDialogRequest(BaseModel):
+    initial_path: str | None = None
+
+
 class DatasetSelectRequest(BaseModel):
     item_id: str
 
@@ -356,6 +362,7 @@ class ModelService:
         self.dataset_items: dict[str, dict[str, Any]] = {}
         self.dataset_jobs: dict[str, dict[str, Any]] = {}
         self.dataset_jobs_lock = threading.Lock()
+        self.active_model_name: str | None = None
         self.set_workdir(default_workdir)
         self.apply_runtime_options(self.runtime_options, unload_models=False)
 
@@ -519,6 +526,7 @@ class ModelService:
 
     def load_model(self, model_name: str) -> dict[str, Any]:
         if model_name in self.loaded_models:
+            self.active_model_name = model_name
             return self.loaded_models[model_name]
 
         cfg = self.model_defs.get(model_name)
@@ -568,7 +576,102 @@ class ModelService:
             "embedding_cache": {},
         }
         self.loaded_models[model_name] = handle
+        self.active_model_name = model_name
         return handle
+
+    @staticmethod
+    def _is_gpu_provider(provider_name: str) -> bool:
+        p = str(provider_name or "")
+        return p in {
+            "CUDAExecutionProvider",
+            "TensorrtExecutionProvider",
+            "ROCMExecutionProvider",
+            "DmlExecutionProvider",
+        }
+
+    def _collect_onnx_providers_from_handle(self, handle: dict[str, Any]) -> list[str]:
+        model = handle.get("model")
+        if model is None:
+            return []
+
+        providers: list[str] = []
+        seen: set[str] = set()
+
+        def add_session_provider_list(session_obj: Any) -> None:
+            if session_obj is None or not hasattr(session_obj, "get_providers"):
+                return
+            try:
+                session_providers = session_obj.get_providers() or []
+            except Exception:
+                session_providers = []
+            for p in session_providers:
+                if p not in seen:
+                    seen.add(p)
+                    providers.append(p)
+
+        # Common layouts across SAM2/SAM3 wrappers.
+        add_session_provider_list(getattr(model, "session", None))
+        add_session_provider_list(getattr(getattr(model, "encoder", None), "session", None))
+        add_session_provider_list(getattr(getattr(model, "decoder", None), "session", None))
+        add_session_provider_list(getattr(getattr(model, "image_encoder", None), "session", None))
+        add_session_provider_list(getattr(getattr(model, "language_encoder", None), "session", None))
+        return providers
+
+    def get_compute_status(self, model_name: str | None = None) -> dict[str, Any]:
+        requested = (model_name or "").strip() or None
+        selected = requested or self.active_model_name
+        handle = self.loaded_models.get(selected) if selected else None
+
+        if handle is None:
+            available = onnxruntime.get_available_providers() or ["CPUExecutionProvider"]
+            compute_device = (
+                "cuda"
+                if any(self._is_gpu_provider(p) for p in available)
+                else "cpu"
+            )
+            return {
+                "loaded": False,
+                "requested_model_name": requested,
+                "model_name": selected,
+                "model_type": None,
+                "compute_device": compute_device,
+                "ai_runtime": "Not loaded",
+                "providers": available,
+                "active_provider": (available[0] if available else None),
+            }
+
+        model_type = str(handle.get("type", "")).lower()
+        if model_type in {"metaclip2", "blip2"}:
+            model_obj = handle.get("model")
+            device = str(getattr(model_obj, "device", "cpu")).lower()
+            return {
+                "loaded": True,
+                "requested_model_name": requested,
+                "model_name": handle.get("name"),
+                "model_type": model_type,
+                "compute_device": "cuda" if "cuda" in device else "cpu",
+                "ai_runtime": "Transformers (PyTorch)",
+                "providers": [device],
+                "active_provider": device,
+            }
+
+        providers = self._collect_onnx_providers_from_handle(handle)
+        if not providers:
+            providers = onnxruntime.get_available_providers() or ["CPUExecutionProvider"]
+        return {
+            "loaded": True,
+            "requested_model_name": requested,
+            "model_name": handle.get("name"),
+            "model_type": model_type or "segment_anything",
+            "compute_device": (
+                "cuda"
+                if any(self._is_gpu_provider(p) for p in providers)
+                else "cpu"
+            ),
+            "ai_runtime": "ONNX Runtime",
+            "providers": providers,
+            "active_provider": (providers[0] if providers else None),
+        }
 
     @staticmethod
     def _safe_filename(name: str) -> str:
@@ -656,10 +759,35 @@ class ModelService:
 
     @staticmethod
     def _image_extensions() -> set[str]:
-        return {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+        return {
+            ".jpg",
+            ".jpeg",
+            ".jpe",
+            ".jfif",
+            ".png",
+            ".bmp",
+            ".dib",
+            ".tif",
+            ".tiff",
+            ".webp",
+            ".gif",
+            ".ppm",
+            ".pgm",
+            ".pbm",
+            ".pnm",
+        }
 
     def _is_image_file(self, path: Path) -> bool:
-        return path.suffix.lower() in self._image_extensions()
+        if path.suffix.lower() in self._image_extensions():
+            return True
+        # Fallback: allow formats OpenCV can read even when extension is uncommon.
+        try:
+            if cv2.haveImageReader(str(path)):
+                return True
+            img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+            return img is not None
+        except Exception:
+            return False
 
     def _parse_annotations_from_json_file(self, json_path: Path) -> list[dict[str, Any]]:
         try:
@@ -821,13 +949,25 @@ class ModelService:
         if not root.exists() or not root.is_dir():
             raise HTTPException(status_code=400, detail=f"Invalid folder: {root}")
 
+        # Workdir always follows currently loaded dataset root.
+        self.set_workdir(str(root))
+
         self.dataset_items.clear()
+        # Workdir now always equals loaded folder; copying into workdir is
+        # no longer meaningful and can create duplicate/self-copy issues.
+        copy_into_workdir = False
         all_image_label_flags: set[str] = set()
         image_paths = root.rglob("*") if recursive else root.glob("*")
         count = 0
+        scanned_files = 0
+        image_candidates = 0
         for image_path in sorted(image_paths):
-            if not image_path.is_file() or not self._is_image_file(image_path):
+            if not image_path.is_file():
                 continue
+            scanned_files += 1
+            if not self._is_image_file(image_path):
+                continue
+            image_candidates += 1
 
             target_image = image_path
             target_json = image_path.with_suffix(".json")
@@ -963,6 +1103,8 @@ class ModelService:
         return {
             "folder_path": str(root),
             "count": count,
+            "scanned_files": scanned_files,
+            "image_candidates": image_candidates,
             "available_image_label_flags": sorted(all_image_label_flags, key=str.lower),
             "items": items,
         }
@@ -1322,9 +1464,12 @@ class ModelService:
                 handle["embedding_cache"].clear()
                 del handle
             unloaded = 1
+            if self.active_model_name == model_name:
+                self.active_model_name = None
         else:
             unloaded = len(self.loaded_models)
             self.loaded_models.clear()
+            self.active_model_name = None
 
         if clear_images:
             self.images.clear()
@@ -1425,6 +1570,11 @@ def load_model(req: LoadModelRequest) -> dict[str, Any]:
     }
 
 
+@app.get("/api/model/compute")
+def model_compute(model_name: str | None = None) -> dict[str, Any]:
+    return service.get_compute_status(model_name=model_name)
+
+
 @app.post("/api/image/upload")
 async def upload_image(file: UploadFile = File(...)) -> dict[str, Any]:
     data = await file.read()
@@ -1468,6 +1618,117 @@ def load_dataset(req: DatasetLoadRequest) -> dict[str, Any]:
         recursive=bool(req.recursive),
         copy_into_workdir=bool(req.copy_into_workdir),
     )
+
+
+@app.post("/api/dialog/folder")
+def open_folder_dialog(req: FolderDialogRequest) -> dict[str, Any]:
+    initial_dir = None
+    if req.initial_path:
+        try:
+            candidate = Path(req.initial_path).expanduser().resolve()
+            if candidate.exists() and candidate.is_dir():
+                initial_dir = str(candidate)
+        except Exception:
+            initial_dir = None
+    if not initial_dir:
+        initial_dir = str(Path.home())
+
+    selected = ""
+    native_picker_available = bool(shutil.which("zenity") or shutil.which("kdialog"))
+    native_picker_cancelled = False
+    native_picker_failed = False
+
+    # Prefer desktop-native pickers first so the dialog matches normal
+    # file chooser look/feel on Linux desktop environments.
+    if shutil.which("zenity"):
+        try:
+            proc = subprocess.run(
+                [
+                    "zenity",
+                    "--file-selection",
+                    "--directory",
+                    "--title=Select Dataset Folder",
+                    f"--filename={initial_dir.rstrip('/')}/",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            if proc.returncode == 0:
+                selected = (proc.stdout or "").strip()
+            elif proc.returncode in (1, 5):  # cancel/close
+                selected = ""
+                native_picker_cancelled = True
+            else:
+                native_picker_failed = True
+        except Exception:
+            native_picker_failed = True
+
+    if not selected and shutil.which("kdialog"):
+        try:
+            proc = subprocess.run(
+                [
+                    "kdialog",
+                    "--getexistingdirectory",
+                    initial_dir,
+                    "--title",
+                    "Select Dataset Folder",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            if proc.returncode == 0:
+                selected = (proc.stdout or "").strip()
+            elif proc.returncode in (1, 255):  # cancel/close
+                selected = ""
+                native_picker_cancelled = True
+            else:
+                native_picker_failed = True
+        except Exception:
+            native_picker_failed = True
+
+    # If a native picker exists and user canceled it, keep it canceled.
+    # Do not fall through into Tk, which can pop a second "old-style" dialog.
+    if not selected and native_picker_available and native_picker_cancelled:
+        return {"folder_path": ""}
+
+    # Fallback only when no native picker exists, or native picker failed.
+    if not selected and (not native_picker_available or native_picker_failed):
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Folder dialog is unavailable in this environment: {exc}",
+            )
+
+        root = None
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            selected = filedialog.askdirectory(
+                title="Select Dataset Folder",
+                initialdir=initial_dir,
+                mustexist=True,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to open folder dialog: {exc}"
+            )
+        finally:
+            if root is not None:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
+    folder_path = str(Path(selected).resolve()) if selected else ""
+    return {"folder_path": folder_path}
 
 
 @app.get("/api/dataset/image/{item_id}")

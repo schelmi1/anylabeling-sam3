@@ -208,16 +208,39 @@ From repo root:
 ```bash
 pip install -r webapp/backend/requirements.txt
 pip install -e . --no-deps
+```
+
+Recommended start (GPU-forced browser app):
+
+```bash
+./run_anylabeling_gpu.sh
+```
+
+This launches the web app server and opens browser automatically at:
+
+```text
+http://127.0.0.1:8765
+```
+
+Optional host/port overrides for launcher:
+
+```bash
+ANYLABELING_WEB_HOST=0.0.0.0 ANYLABELING_WEB_PORT=8765 ./run_anylabeling_gpu.sh
+```
+
+Run legacy desktop GTK app explicitly:
+
+```bash
+./run_anylabeling_gpu.sh --desktop
+```
+
+Alternative direct web server start (without launcher):
+
+```bash
 ./webapp/backend/run.sh
 ```
 
-Open in browser:
-
-```text
-http://127.0.0.1:8000
-```
-
-Optional host/port overrides:
+Direct server host/port overrides:
 
 ```bash
 ANYLABELING_WEBAPP_HOST=0.0.0.0 ANYLABELING_WEBAPP_PORT=8000 ./webapp/backend/run.sh
@@ -246,6 +269,35 @@ If still failing, install transformers from source:
 ```bash
 pip install git+https://github.com/huggingface/transformers.git
 ```
+
+### ONNX CUDA Runtime Check (Desktop + Browser)
+
+If ONNX inference still shows CPU, apply shell startup env and verify providers:
+
+```bash
+source ~/.bashrc
+python -c "import onnxruntime as ort; print(ort.get_available_providers())"
+./run_anylabeling_gpu.sh
+```
+
+Expected: `CUDAExecutionProvider` appears in provider list, and UI compute chip shows `cuda`.
+
+Quick pre-launch sanity check:
+
+```bash
+python -c "import onnxruntime as ort; print(ort.get_available_providers())"
+```
+
+Expected output includes `CUDAExecutionProvider` before launching the app.
+
+If it still falls back to CPU, collect diagnostics:
+
+```bash
+python -c "import onnxruntime as ort, sys; print(sys.executable); print(ort.__file__); print(ort.get_available_providers())"
+echo "$LD_LIBRARY_PATH"
+```
+
+Use these outputs to debug env/package mismatch (wrong interpreter, wrong ORT wheel, or missing CUDA/cuDNN libs).
 
 Remote usage via SSH port-forward:
 
@@ -339,3 +391,52 @@ When a new requirement is provided:
 - 2026-04-01: Split combined sidebar card into separate `Session` and `Model` tabs.
 - 2026-04-01: Refined tab layout to two separate tab cards (Session card and Model card), switched by shared tab buttons.
 - 2026-04-01: Reverted tabbed sidebar layout; Session, Model, Prompt Tools, Annotations, and Controls are standalone cards.
+- 2026-04-02: Added dataset folder browse dialog button (context-window style picker) to fill folder path input.
+- 2026-04-02: Updated folder picker to prefer desktop-native dialogs (`zenity`/`kdialog`) so it matches normal file chooser style; Tk kept only as fallback.
+- 2026-04-02: Fixed dataset loading visibility for image-only/mixed folders by resetting gallery filter/threshold on load and keeping unscored images visible in no-filter mode.
+- 2026-04-02: Expanded recognized dataset image extensions (`.jpe`, `.jfif`, `.dib`, `.gif`, `.ppm/.pgm/.pbm/.pnm`) for broader folder compatibility.
+- 2026-04-02: Workdir behavior changed: no manual Workdir UI; current workdir is automatically set to the loaded dataset folder.
+- 2026-04-02: Dataset image detection now includes OpenCV reader fallback for uncommon image extensions.
+- 2026-04-02: Removed `Copy files into workdir` option from UI/flow (workdir follows loaded dataset folder and no copy mode is used).
+- 2026-04-02: Added dataset-load diagnostics (`scanned_files`, `image_candidates`) and zero-result status message for easier troubleshooting.
+- 2026-04-02: Browse-folder flow now auto-loads selected folder immediately (no extra `Load Folder` click required).
+- 2026-04-02: UX/UI pass applied: stronger typography hierarchy and spacing rhythm, reduced border noise, increased active-state contrast, and tighter layout consistency.
+- 2026-04-02: Added dynamic color-coded current model-family badge (SAM image model vs gallery classifier).
+- 2026-04-02: Enhanced annotations panel with label search, grouping-by-label toggle, and label/annotation counts in summary.
+- 2026-04-02: Improved empty-state guidance for annotations and no-proposal inference outcomes with actionable micro-copy.
+- 2026-04-02: Added visible shortcut hints and keyboard bindings: `P` point+, `R` rectangle, `S` save proposal (wheel open), `D` discard proposal (wheel open).
+- 2026-04-02: Refined proposal control wheel into a compact panel layout (non-radial) for clearer action hierarchy.
+- 2026-04-02: Fixed `P`/`R` hotkeys by routing through explicit prompt-tool activation logic with warning feedback when gallery models disable prompt tools.
+- 2026-04-02: Reworked status bar from always-green to neutral severity-aware states (info/success/warning/error).
+- 2026-04-02: Moved heavy runtime options behind a collapsed `Advanced Controls` bar/button (details panel) to declutter left sidebar default view.
+- 2026-04-02: Added cursor-attached prompt badge on canvas to communicate active prompt tool and SAM3 prompt mode near mouse position.
+- 2026-04-02: Moved status communication from left-sidebar bottom to inline image-header status chip plus global top-right toast stack.
+- 2026-04-02: Added `C` keyboard shortcut for Crop tool (alongside `P`, `R`, `S`, `D`).
+- 2026-04-02: Added always-on global top bar (sticky) with auto-scrolling overflow and live chips for loaded folder, loaded model, workspace stats, and latest status.
+- 2026-04-02: Added `Model Family` chip to global top bar, synchronized with the sidebar model-family badge state.
+- 2026-04-02: Made Session, Model, Prompt Tools, and Annotations cards collapsible/expandable using the same details-summary pattern as Advanced Controls.
+- 2026-04-02: Removed duplicate model-family badge from top-left sidebar card; model family is now shown only in the global top bar chip.
+- 2026-04-02: Removed manual `Load Model` button; selected dropdown model now auto-loads on selection change (and initial load).
+- 2026-04-02: Removed top-right toast status display in favor of global bar status chip + hover history popover.
+- 2026-04-02: Added status history interaction: hovering global status chip shows last 10 status messages.
+- 2026-04-02: Updated guided tour to match current UX: global top bar, hoverable status history, auto model load, cursor prompt badge, collapsible advanced controls, and updated shortcut guidance.
+- 2026-04-02: Model dropdown now defaults to an explicit `Select model...` state with no model loaded at startup; model auto-load triggers only after user selection.
+- 2026-04-02: Added explicit model load-state indicator in Model card (`No model loaded` / `Loading` / `Loaded` / `Load failed`) synchronized with selection and unload/reset actions.
+- 2026-04-02: Removed duplicate inline status chip from Image header; status is now communicated only through the global top-bar status chip + hover history.
+- 2026-04-02: Added global top-bar `Compute` chip showing active compute device and AI runtime, with backend-derived provider details (ONNX EPs or Transformers/PyTorch device) refreshed on startup, model load, runtime apply, and reset.
+- 2026-04-02: Re-designed proposal save wheel to a modern floating action card and reduced actions to exactly three buttons: `Save New`, `Save Existing`, and `Discard` (removed `Cancel` action and outside-click dismissal).
+- 2026-04-02: Folder browse dialog behavior stabilized: when a native picker (`zenity`/`kdialog`) is available and canceled, do not fall through to Tk fallback; Tk is now used only if native pickers are unavailable or fail.
+- 2026-04-02: Added executable GPU launcher script `run_anylabeling_gpu.sh` with forced ONNX CUDA provider defaults (`ANYLABELING_FORCE_CUDA=1`, TensorRT off, CUDA provider priority, `CUDA_VISIBLE_DEVICES=0`); default launch target is browser app (`uvicorn webapp.backend.app:app` with auto-open), with explicit `--desktop` option for legacy GTK app.
+- 2026-04-02: Updated startup docs: recommend `./run_anylabeling_gpu.sh` for browser app launch, document `--desktop` fallback, and include launcher/direct host+port override options.
+- 2026-04-02: Compute status chip now reports device as `cuda`/`cpu` (instead of `GPU`/`CPU`) and includes active runtime provider details for clearer ONNX CUDA verification.
+- 2026-04-02: Added shell-startup configuration guidance and helper block for `~/.bashrc` to auto-extend `LD_LIBRARY_PATH` with pip-installed CUDA/cuDNN library folders used by `onnxruntime-gpu`.
+- 2026-04-02: Added explicit ONNX CUDA verification/troubleshooting commands (`source ~/.bashrc`, provider check, launcher run, and diagnostic dump) to startup docs.
+- 2026-04-02: Added a compact pre-launch ONNX CUDA sanity-check command to startup documentation.
+- 2026-04-02: Crop preview UX improved: larger empty-state card with icon/instruction when no crop is selected; when crop exists, show immediate crop thumbnail plus effective-resolution badge.
+- 2026-04-02: Annotations panel made more task-driven: selected-label summary line added, search row made sticky, and annotation list now virtualizes rendering for large lists.
+- 2026-04-02: Left-rail spacing/typography rhythm refined: increased inter-card spacing and reduced uppercase micro-label styling (sentence-case labels, lighter letter spacing).
+- 2026-04-02: Gallery filters/stats moved out of left sidebar into a dedicated local toolbar directly above gallery thumbnails; `Run Whole Gallery` kept in Model card as a single-row action button.
+- 2026-04-02: Finalized gallery-control placement: moved to a dedicated collapsible `Gallery Controls` card in the left rail between `Session` and `Model`; `Run Whole Gallery` remains a single-row button in `Model`.
+- 2026-04-02: Moved app identity (`AnyLabeling-Next` + `SAM2/SAM3/MetaCLIP2/BLIP2`) from left sidebar to the left side of the global top status bar, and moved guided-tour `?` button to the top bar to free left-rail space.
+- 2026-04-02: Gallery inference progress HUD de-duplicated: avoid repeating processed counters/current item in status line when those are already shown in dedicated fields.
+- 2026-04-02: Global top-bar stats annotation count corrected to dataset-wide semantics (sum across dataset items) with live adjustment for the currently open image.
